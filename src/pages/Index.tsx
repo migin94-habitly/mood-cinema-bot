@@ -12,6 +12,7 @@ import { DiscoverySkeleton } from '@/components/Skeletons';
 import { getMovieRecommendations, getRecentlyRecommended, saveRecommendationHistory } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { usePersistence, getUserId } from '@/hooks/usePersistence';
+import { trackEvent } from '@/services/analyticsService';
 
 const BACK_MAP: Partial<Record<Screen, Screen>> = {
   MOOD_GRID: 'WELCOME',
