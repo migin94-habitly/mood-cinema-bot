@@ -1,0 +1,4 @@
+project_id = "mtxkjhxqnxzfwmkmrbvj"
+
+[functions.movie-recommendations]
+verify_jwt = false
