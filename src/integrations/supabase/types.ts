@@ -14,7 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      user_stats: {
+        Row: {
+          created_at: string
+          id: string
+          swipe_count: number
+          telegram_user_id: string
+          updated_at: string
+          watched_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          swipe_count?: number
+          telegram_user_id: string
+          updated_at?: string
+          watched_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          swipe_count?: number
+          telegram_user_id?: string
+          updated_at?: string
+          watched_count?: number
+        }
+        Relationships: []
+      }
+      watchlist_items: {
+        Row: {
+          created_at: string
+          id: string
+          movie_data: Json
+          telegram_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_data: Json
+          telegram_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_data?: Json
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
