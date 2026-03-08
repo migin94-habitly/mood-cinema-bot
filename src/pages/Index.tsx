@@ -120,29 +120,40 @@ const Index: React.FC = () => {
 
   const handleLike = (movie: Movie) => {
     haptic.success();
-    setSwipeCount(c => c + 1);
-    setWatchedCount(c => c + 1);
+    const newSwipe = swipeCount + 1;
+    const newWatched = watchedCount + 1;
+    setSwipeCount(newSwipe);
+    setWatchedCount(newWatched);
     const isAlreadyIn = state.watchlist.some(m => m.id === movie.id);
     setState(prev => ({
       ...prev,
       watchlist: isAlreadyIn ? prev.watchlist : [...prev.watchlist, movie],
       currentMovieIndex: prev.currentMovieIndex + 1
     }));
+    if (!isAlreadyIn) addToWatchlist(movie);
+    saveStats(newSwipe, newWatched);
   };
 
   const handlePass = () => {
     haptic.light();
-    setSwipeCount(c => c + 1);
+    const newSwipe = swipeCount + 1;
+    setSwipeCount(newSwipe);
     setState(prev => ({
       ...prev,
       currentMovieIndex: prev.currentMovieIndex + 1
     }));
+    saveStats(newSwipe, watchedCount);
   };
 
   const handleToggleWatchlist = (movie: Movie) => {
     haptic.medium();
     setState(prev => {
       const isAdded = prev.watchlist.some(m => m.id === movie.id);
+      if (isAdded) {
+        removeFromWatchlist(movie.id);
+      } else {
+        addToWatchlist(movie);
+      }
       return {
         ...prev,
         watchlist: isAdded
