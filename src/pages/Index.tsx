@@ -29,6 +29,8 @@ const Index: React.FC = () => {
     selectedMovie: null,
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [swipeCount, setSwipeCount] = useState(0);
+  const [watchedCount, setWatchedCount] = useState(0);
 
   const screenRef = useRef(state.currentScreen);
   screenRef.current = state.currentScreen;
@@ -37,30 +39,19 @@ const Index: React.FC = () => {
   useEffect(() => {
     const tg = getTelegramWebApp();
     if (!tg) return;
-
     tg.ready();
     tg.expand();
-
-    // Apply Telegram theme colors to CSS variables
     const tp = tg.themeParams;
     const root = document.documentElement;
-
-    if (tp.bg_color) {
-      root.style.setProperty('--tg-bg', tp.bg_color);
-    }
-    if (tp.header_bg_color) {
-      tg.setHeaderColor(tp.header_bg_color);
-    }
-    if (tp.bg_color) {
-      tg.setBackgroundColor(tp.bg_color);
-    }
+    if (tp.bg_color) root.style.setProperty('--tg-bg', tp.bg_color);
+    if (tp.header_bg_color) tg.setHeaderColor(tp.header_bg_color);
+    if (tp.bg_color) tg.setBackgroundColor(tp.bg_color);
   }, []);
 
   // ── Telegram BackButton ──
   useEffect(() => {
     const tg = getTelegramWebApp();
     if (!tg) return;
-
     const handleBack = () => {
       const backTo = BACK_MAP[screenRef.current];
       if (backTo) {
@@ -68,17 +59,10 @@ const Index: React.FC = () => {
         setState(prev => ({ ...prev, currentScreen: backTo }));
       }
     };
-
-    if (state.currentScreen === 'WELCOME') {
-      tg.BackButton.hide();
-    } else {
-      tg.BackButton.show();
-    }
-
+    if (state.currentScreen === 'WELCOME') tg.BackButton.hide();
+    else tg.BackButton.show();
     tg.BackButton.onClick(handleBack);
-    return () => {
-      tg.BackButton.offClick(handleBack);
-    };
+    return () => { tg.BackButton.offClick(handleBack); };
   }, [state.currentScreen]);
 
   const navigateTo = (screen: Screen) => {
@@ -118,6 +102,8 @@ const Index: React.FC = () => {
 
   const handleLike = (movie: Movie) => {
     haptic.success();
+    setSwipeCount(c => c + 1);
+    setWatchedCount(c => c + 1);
     const isAlreadyIn = state.watchlist.some(m => m.id === movie.id);
     setState(prev => ({
       ...prev,
@@ -128,6 +114,7 @@ const Index: React.FC = () => {
 
   const handlePass = () => {
     haptic.light();
+    setSwipeCount(c => c + 1);
     setState(prev => ({
       ...prev,
       currentMovieIndex: prev.currentMovieIndex + 1
@@ -176,7 +163,7 @@ const Index: React.FC = () => {
       case 'WATCHLIST':
         return <WatchlistScreen movies={state.watchlist} onBack={() => navigateTo('DISCOVERY')} onNavigate={navigateTo} />;
       case 'PROFILE':
-        return <ProfileScreen watchlistCount={state.watchlist.length} onNavigate={navigateTo} />;
+        return <ProfileScreen watchlistCount={state.watchlist.length} swipeCount={swipeCount} watchedCount={watchedCount} onNavigate={navigateTo} />;
       case 'DETAILS':
         return (
           <DetailsScreen 

@@ -1,7 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
 import { Movie, Screen } from '@/types/movie';
 import { haptic } from '@/lib/telegram';
+import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
 
 interface Props {
   movies: Movie[];
@@ -95,19 +96,19 @@ const SwipeCard: React.FC<{
                 )}
               </div>
               <div className="flex flex-col gap-1 items-end shrink-0 ml-2">
-                <div className="flex items-center bg-muted px-2 py-0.5 rounded-lg gap-1 border border-border">
-                  <span className="text-[9px] font-bold text-warning">IMDB</span>
+                <div className="flex items-center px-2 py-0.5 rounded-lg gap-1 border" style={IMDB_STYLE}>
+                  <span className="text-[9px] font-bold">IMDB</span>
                   <span className="text-xs font-bold">{movie.ratingImdb}</span>
                 </div>
-                <div className="flex items-center bg-muted px-2 py-0.5 rounded-lg gap-1 border border-border">
-                  <span className="text-[9px] font-bold text-primary">КП</span>
+                <div className="flex items-center px-2 py-0.5 rounded-lg gap-1 border" style={KP_STYLE}>
+                  <span className="text-[9px] font-bold">КП</span>
                   <span className="text-xs font-bold">{movie.ratingKinopoisk}</span>
                 </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mb-3">
               {movie.platform && (
-                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-md border border-primary/20 uppercase tracking-wider">{movie.platform}</span>
+                <span className="text-[10px] font-bold px-2 py-1 rounded-md border uppercase tracking-wider" style={getPlatformStyle(movie.platform)}>{movie.platform}</span>
               )}
               {movie.type === 'series' && (
                 <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-1 rounded-md border border-success/20 uppercase tracking-wider">Сериал</span>
@@ -127,9 +128,52 @@ const SwipeCard: React.FC<{
   );
 };
 
+type FilterType = 'all' | 'movie' | 'series';
+
 export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike, onPass, onDetails, onNavigate, onRefresh, isRefreshing }) => {
-  const currentMovie = movies[currentIndex];
-  const nextMovie = movies[currentIndex + 1];
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
+  const [localIndex, setLocalIndex] = useState(0);
+
+  // Get unique platforms from movies
+  const platforms = useMemo(() => {
+    const set = new Set(movies.map(m => m.platform).filter(Boolean));
+    return Array.from(set);
+  }, [movies]);
+
+  // Apply filters
+  const filteredMovies = useMemo(() => {
+    let result = movies;
+    if (filterType !== 'all') {
+      result = result.filter(m => m.type === filterType);
+    }
+    if (filterPlatform) {
+      result = result.filter(m => m.platform?.toLowerCase() === filterPlatform.toLowerCase());
+    }
+    return result;
+  }, [movies, filterType, filterPlatform]);
+
+  // Reset local index when filters change
+  const prevFilterKey = useRef(`${filterType}-${filterPlatform}`);
+  const filterKey = `${filterType}-${filterPlatform}`;
+  if (filterKey !== prevFilterKey.current) {
+    prevFilterKey.current = filterKey;
+    setLocalIndex(0);
+  }
+
+  const currentMovie = filteredMovies[localIndex];
+  const nextMovie = filteredMovies[localIndex + 1];
+
+  const handleLocalLike = (movie: Movie) => {
+    onLike(movie);
+    setLocalIndex(prev => prev + 1);
+  };
+
+  const handleLocalPass = () => {
+    onPass();
+    setLocalIndex(prev => prev + 1);
+  };
 
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
@@ -152,6 +196,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
     if (pullY >= PULL_THRESHOLD && onRefresh && !isRefreshing) {
       haptic.medium();
       onRefresh();
+      setLocalIndex(0);
     }
     setPullY(0);
     setIsPulling(false);
@@ -166,13 +211,27 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
       >
         <span className="material-symbols-outlined text-primary text-6xl mb-4">sentiment_very_satisfied</span>
         <h2 className="text-2xl font-bold mb-2">Вы просмотрели всё!</h2>
-        <p className="text-muted-foreground mb-8">Попробуйте другое настроение для новых находок.</p>
-        <button 
-          onClick={() => onNavigate('MOOD_GRID')}
-          className="bg-primary px-8 py-3 rounded-xl font-bold text-primary-foreground shadow-lg shadow-primary/20"
-        >
-          Выбрать настроение
-        </button>
+        <p className="text-muted-foreground mb-8">
+          {filterType !== 'all' || filterPlatform 
+            ? 'Попробуйте сбросить фильтры или выбрать другое настроение.' 
+            : 'Попробуйте другое настроение для новых находок.'}
+        </p>
+        <div className="flex gap-3">
+          {(filterType !== 'all' || filterPlatform) && (
+            <button 
+              onClick={() => { setFilterType('all'); setFilterPlatform(null); setLocalIndex(0); }}
+              className="bg-muted px-6 py-3 rounded-xl font-bold text-foreground border border-border"
+            >
+              Сбросить фильтры
+            </button>
+          )}
+          <button 
+            onClick={() => onNavigate('MOOD_GRID')}
+            className="bg-primary px-8 py-3 rounded-xl font-bold text-primary-foreground shadow-lg shadow-primary/20"
+          >
+            Выбрать настроение
+          </button>
+        </div>
       </motion.div>
     );
   }
@@ -216,27 +275,81 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Подбор</span>
           </div>
         </div>
-        <button className="size-10 rounded-full glass flex items-center justify-center">
+        <button 
+          onClick={() => setShowFilters(!showFilters)} 
+          className={`size-10 rounded-full glass flex items-center justify-center ${showFilters ? 'ring-2 ring-primary' : ''}`}
+        >
           <span className="material-symbols-outlined text-muted-foreground">tune</span>
         </button>
       </header>
 
+      {/* Filter panel */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden px-6"
+          >
+            <div className="pb-4 space-y-3">
+              {/* Type filter */}
+              <div className="flex gap-2">
+                {([['all', 'Все'], ['movie', 'Фильмы'], ['series', 'Сериалы']] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setFilterType(val)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all ${
+                      filterType === val 
+                        ? 'bg-primary text-primary-foreground border-primary' 
+                        : 'bg-muted text-muted-foreground border-border hover:border-primary/30'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {/* Platform filter */}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setFilterPlatform(null)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                    !filterPlatform 
+                      ? 'bg-primary text-primary-foreground border-primary' 
+                      : 'bg-muted text-muted-foreground border-border'
+                  }`}
+                >
+                  Все платформы
+                </button>
+                {platforms.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setFilterPlatform(filterPlatform === p ? null : p)}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all"
+                    style={filterPlatform === p ? { ...getPlatformStyle(p), fontWeight: 800 } : { ...getPlatformStyle(p), opacity: 0.6 }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <main className="flex-1 relative px-4 py-2 flex items-center justify-center">
         <div className="relative w-full max-w-[400px] aspect-[2/3]">
-          {/* Next card preview (static behind) */}
           {nextMovie && (
             <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-xl bg-surface scale-[0.92] opacity-50">
               <img src={nextMovie.posterUrl} className="w-full h-full object-cover" alt={nextMovie.title} />
             </div>
           )}
-
-          {/* Current swipeable card */}
           <AnimatePresence mode="popLayout">
             <SwipeCard
               key={currentMovie.id}
               movie={currentMovie}
-              onLike={() => onLike(currentMovie)}
-              onPass={onPass}
+              onLike={() => handleLocalLike(currentMovie)}
+              onPass={handleLocalPass}
               onDetails={() => onDetails(currentMovie)}
             />
           </AnimatePresence>
@@ -245,7 +358,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
 
       <div className="px-6 py-8 flex items-center justify-center gap-10">
         <motion.button 
-          onClick={onPass}
+          onClick={handleLocalPass}
           className="group flex flex-col items-center gap-2"
           whileTap={{ scale: 0.85 }}
         >
@@ -267,7 +380,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
         </motion.button>
 
         <motion.button 
-          onClick={() => onLike(currentMovie)}
+          onClick={() => handleLocalLike(currentMovie)}
           className="group flex flex-col items-center gap-2"
           whileTap={{ scale: 0.85 }}
         >

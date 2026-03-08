@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Movie } from '@/types/movie';
+import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface Props {
   movie: Movie;
@@ -8,24 +10,28 @@ interface Props {
   onToggleWatchlist: () => void;
 }
 
+const WATCH_SOURCES = [
+  { name: 'HDRezka', url: 'https://hdrezka.ag', icon: '🎬' },
+  { name: 'ZetFlix', url: 'https://zet-flix.online', icon: '🎥' },
+];
+
 export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, onToggleWatchlist }) => {
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+
   const handleShare = async () => {
     const shareText = `Посмотри: ${movie.title} (${movie.year}). IMDB: ${movie.ratingImdb}, КП: ${movie.ratingKinopoisk}. Рекомендация от Movie Mood AI!`;
     const shareUrl = window.location.href;
-
     if (navigator.share) {
-      try {
-        await navigator.share({ title: movie.title, text: shareText, url: shareUrl });
-      } catch (err) {
-        console.error('Error sharing:', err);
-      }
+      try { await navigator.share({ title: movie.title, text: shareText, url: shareUrl }); } catch {}
     } else {
-      try {
-        await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-      } catch (err) {
-        console.error('Failed to copy:', err);
-      }
+      try { await navigator.clipboard.writeText(`${shareText} ${shareUrl}`); } catch {}
     }
+  };
+
+  const handleWatch = (source: typeof WATCH_SOURCES[0]) => {
+    const query = encodeURIComponent(movie.titleOriginal || movie.title);
+    window.open(`${source.url}/search/?q=${query}`, '_blank');
+    setShowSourcePicker(false);
   };
 
   return (
@@ -48,16 +54,16 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
         <div className="space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
             {movie.platform && (
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 rounded">{movie.platform}</span>
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border" style={getPlatformStyle(movie.platform)}>{movie.platform}</span>
             )}
             {movie.type === 'series' && (
               <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-success/20 text-success border border-success/30 rounded">Сериал</span>
             )}
-            <div className="flex items-center gap-1 text-warning">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded border" style={IMDB_STYLE}>
               <span className="text-[10px] font-bold">IMDB</span>
               <span className="text-sm font-bold">{movie.ratingImdb}</span>
             </div>
-            <div className="flex items-center gap-1 text-primary">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded border" style={KP_STYLE}>
               <span className="text-[10px] font-bold">КП</span>
               <span className="text-sm font-bold">{movie.ratingKinopoisk}</span>
             </div>
@@ -71,9 +77,7 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
 
         <div className="space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary">О фильме</h3>
-          <p className="text-muted-foreground leading-relaxed text-sm">
-            {movie.description}
-          </p>
+          <p className="text-muted-foreground leading-relaxed text-sm">{movie.description}</p>
         </div>
 
         <div className="space-y-4">
@@ -107,11 +111,56 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
             {isInWatchlist ? 'Удалить из списка' : 'В список просмотра'}
           </span>
         </button>
-        <button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 rounded-xl shadow-[0_8px_30px_hsla(272,90%,55%,0.3)] flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+        <button 
+          onClick={() => setShowSourcePicker(true)}
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 rounded-xl shadow-[0_8px_30px_hsla(272,90%,55%,0.3)] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+        >
           <span className="text-base">Смотреть фильм</span>
           <span className="material-symbols-outlined">open_in_new</span>
         </button>
       </div>
+
+      {/* Source picker overlay */}
+      <AnimatePresence>
+        {showSourcePicker && (
+          <motion.div 
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setShowSourcePicker(false)} />
+            <motion.div
+              className="relative w-full max-w-md p-6 pb-10 glass border-t border-border rounded-t-3xl space-y-4"
+              initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
+              transition={{ type: 'spring', damping: 25 }}
+            >
+              <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto" />
+              <h3 className="text-lg font-bold text-center">Где смотреть?</h3>
+              <div className="space-y-3">
+                {WATCH_SOURCES.map(source => (
+                  <button
+                    key={source.name}
+                    onClick={() => handleWatch(source)}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl border border-border bg-surface hover:bg-muted transition-all active:scale-[0.98]"
+                  >
+                    <span className="text-2xl">{source.icon}</span>
+                    <div className="text-left flex-1">
+                      <p className="font-bold">{source.name}</p>
+                      <p className="text-xs text-muted-foreground">{source.url}</p>
+                    </div>
+                    <span className="material-symbols-outlined text-muted-foreground">open_in_new</span>
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={() => setShowSourcePicker(false)}
+                className="w-full py-3 text-muted-foreground font-bold text-sm uppercase tracking-wider"
+              >
+                Отмена
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

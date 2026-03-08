@@ -4,10 +4,12 @@ import { getTelegramWebApp } from '@/lib/telegram';
 
 interface Props {
   watchlistCount: number;
+  swipeCount: number;
+  watchedCount: number;
   onNavigate: (screen: Screen) => void;
 }
 
-export const ProfileScreen: React.FC<Props> = ({ watchlistCount, onNavigate }) => {
+export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, watchedCount, onNavigate }) => {
   const tgUser = useMemo(() => {
     const tg = getTelegramWebApp();
     return tg?.initDataUnsafe?.user ?? null;
@@ -48,11 +50,11 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, onNavigate }) =
 
           <div className="grid grid-cols-3 gap-3 w-full mt-10">
             <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold">420</span>
+              <span className="text-2xl font-bold">{swipeCount}</span>
               <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mt-1">Свайпов</span>
             </div>
             <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold">56</span>
+              <span className="text-2xl font-bold">{watchedCount}</span>
               <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mt-1">Смотрел</span>
             </div>
             <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col items-center justify-center">
@@ -73,10 +75,10 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, onNavigate }) =
                 <span className="material-symbols-outlined text-primary-foreground text-3xl">military_tech</span>
               </div>
               <div className="flex-1">
-                <p className="font-bold text-lg">Киноман 2-го уровня</p>
-                <p className="text-[11px] text-muted-foreground mb-3">До следующего уровня осталось 4 фильма</p>
+                <p className="font-bold text-lg">Киноман {Math.floor(watchedCount / 10) + 1}-го уровня</p>
+                <p className="text-[11px] text-muted-foreground mb-3">До следующего уровня осталось {10 - (watchedCount % 10)} фильмов</p>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary w-[65%] rounded-full shadow-[0_0_8px_hsla(272,90%,55%,0.4)]" />
+                  <div className="h-full bg-primary rounded-full shadow-[0_0_8px_hsla(272,90%,55%,0.4)]" style={{ width: `${(watchedCount % 10) * 10}%` }} />
                 </div>
               </div>
             </div>

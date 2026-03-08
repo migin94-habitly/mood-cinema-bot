@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Movie, Screen } from '@/types/movie';
+import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface Props {
   movies: Movie[];
@@ -7,7 +9,21 @@ interface Props {
   onNavigate: (screen: Screen) => void;
 }
 
+const WATCH_SOURCES = [
+  { name: 'HDRezka', url: 'https://hdrezka.ag', icon: '🎬' },
+  { name: 'ZetFlix', url: 'https://zet-flix.online', icon: '🎥' },
+];
+
 export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate }) => {
+  const [sourceMovie, setSourceMovie] = useState<Movie | null>(null);
+
+  const handleWatch = (source: typeof WATCH_SOURCES[0]) => {
+    if (!sourceMovie) return;
+    const query = encodeURIComponent(sourceMovie.titleOriginal || sourceMovie.title);
+    window.open(`${source.url}/search/?q=${query}`, '_blank');
+    setSourceMovie(null);
+  };
+
   return (
     <div className="h-screen w-full flex flex-col bg-background">
       <header className="sticky top-0 z-50 glass border-b border-primary/10 px-4 py-4 flex items-center justify-between">
@@ -43,11 +59,17 @@ export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate })
                 </div>
                 <h3 className="font-bold text-sm truncate px-1">{movie.title}</h3>
                 <div className="flex items-center gap-2 px-1">
-                  <span className="text-[9px] text-warning font-bold">IMDB {movie.ratingImdb}</span>
-                  <span className="text-[9px] text-primary font-bold">КП {movie.ratingKinopoisk}</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border" style={IMDB_STYLE}>IMDB {movie.ratingImdb}</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border" style={KP_STYLE}>КП {movie.ratingKinopoisk}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground px-1 font-medium">{movie.platform} • {movie.year}</p>
-                <button className="mt-1 w-full py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-1">
+                <div className="px-1">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border inline-block" style={getPlatformStyle(movie.platform)}>{movie.platform}</span>
+                  <span className="text-[10px] text-muted-foreground ml-2">{movie.year}</span>
+                </div>
+                <button 
+                  onClick={() => setSourceMovie(movie)}
+                  className="mt-1 w-full py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-1"
+                >
                   <span className="material-symbols-outlined text-sm">play_arrow</span>
                   Смотреть
                 </button>
@@ -71,6 +93,46 @@ export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate })
           <span className="text-[10px] font-bold uppercase tracking-widest">Профиль</span>
         </button>
       </nav>
+
+      {/* Source picker */}
+      <AnimatePresence>
+        {sourceMovie && (
+          <motion.div 
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={() => setSourceMovie(null)} />
+            <motion.div
+              className="relative w-full max-w-md p-6 pb-10 glass border-t border-border rounded-t-3xl space-y-4"
+              initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
+              transition={{ type: 'spring', damping: 25 }}
+            >
+              <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto" />
+              <h3 className="text-lg font-bold text-center">Где смотреть?</h3>
+              <p className="text-sm text-muted-foreground text-center">{sourceMovie.title}</p>
+              <div className="space-y-3">
+                {WATCH_SOURCES.map(source => (
+                  <button
+                    key={source.name}
+                    onClick={() => handleWatch(source)}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl border border-border bg-surface hover:bg-muted transition-all active:scale-[0.98]"
+                  >
+                    <span className="text-2xl">{source.icon}</span>
+                    <div className="text-left flex-1">
+                      <p className="font-bold">{source.name}</p>
+                      <p className="text-xs text-muted-foreground">{source.url}</p>
+                    </div>
+                    <span className="material-symbols-outlined text-muted-foreground">open_in_new</span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setSourceMovie(null)} className="w-full py-3 text-muted-foreground font-bold text-sm uppercase tracking-wider">
+                Отмена
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
