@@ -10,20 +10,8 @@ export const MoodSelectionScreen: React.FC<Props> = ({ onSelectMood }) => {
   const [selected, setSelected] = useState<MoodType | null>(null);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-background p-6">
-      <header className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary p-1.5 rounded-lg">
-            <span className="material-symbols-outlined text-primary-foreground text-[20px]">movie</span>
-          </div>
-          <h1 className="text-lg font-bold tracking-tight">Movie Mood</h1>
-        </div>
-        <div className="size-10 rounded-full border border-primary/30 flex items-center justify-center bg-primary/10">
-          <span className="material-symbols-outlined text-primary">person</span>
-        </div>
-      </header>
-
-      <div className="text-center mb-8">
+    <div className="h-screen w-full flex flex-col bg-background p-6 pt-4">
+      <div className="text-center mb-5">
         <h2 className="text-2xl font-bold mb-2">Как вы себя чувствуете сейчас?</h2>
         <p className="text-muted-foreground text-sm">Выберите настроение для идеального кино</p>
       </div>

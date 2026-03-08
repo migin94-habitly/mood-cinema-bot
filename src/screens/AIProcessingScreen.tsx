@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MoodType } from '@/types/movie';
 import { AnimatePresence, motion } from 'framer-motion';
+import logo from '@/assets/logo.png';
 
 interface Props {
   mood: MoodType;
@@ -66,6 +67,14 @@ export const AIProcessingScreen: React.FC<Props> = ({ mood }) => {
 
   return (
     <div className="h-screen w-full flex flex-col items-center justify-center px-6 bg-background text-center">
+      <motion.img 
+        src={logo} 
+        alt="Movie Mood" 
+        className="size-14 mb-4"
+        initial={{ scale: 0, rotate: -180 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: 'spring', duration: 0.8 }}
+      />
       <div className="bg-primary/20 border border-primary/40 px-4 py-1.5 rounded-full mb-6 flex items-center gap-2">
         <span className="material-symbols-outlined text-primary text-base">auto_awesome</span>
         <span className="text-xs font-semibold tracking-wide uppercase">Mood: {mood}</span>
