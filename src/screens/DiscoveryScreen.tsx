@@ -249,9 +249,9 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
   return (
     <div
       className="h-screen w-full flex flex-col bg-background overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={showFilters ? undefined : handleTouchStart}
+      onTouchMove={showFilters ? undefined : handleTouchMove}
+      onTouchEnd={showFilters ? undefined : handleTouchEnd}
     >
       {/* Pull-to-refresh indicator */}
       <motion.div
@@ -274,7 +274,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
         )}
       </motion.div>
 
-      <header className="flex items-center justify-between px-6 py-4">
+      <header className="relative z-30 flex items-center justify-between px-6 py-4">
         <button onClick={() => onNavigate('PROFILE')} className="size-10 rounded-full glass flex items-center justify-center">
           <span className="material-symbols-outlined text-muted-foreground">person</span>
         </button>
@@ -300,7 +300,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
+            className="relative z-30 overflow-hidden"
           >
             <div className="px-6 pb-4 space-y-4">
               {/* Mood filter */}
