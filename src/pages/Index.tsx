@@ -7,6 +7,8 @@ import { DiscoveryScreen, DiscoveryFilters } from '@/screens/DiscoveryScreen';
 import { WatchlistScreen } from '@/screens/WatchlistScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
+import { ScreenTransition } from '@/components/ScreenTransition';
+import { DiscoverySkeleton } from '@/components/Skeletons';
 import { getMovieRecommendations, getRecentlyRecommended, saveRecommendationHistory } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { usePersistence, getUserId } from '@/hooks/usePersistence';
@@ -174,15 +176,21 @@ const Index: React.FC = () => {
   };
 
   const renderScreen = () => {
-    switch (state.currentScreen) {
+    const screen = state.currentScreen;
+    let content: React.ReactNode;
+
+    switch (screen) {
       case 'WELCOME':
-        return <WelcomeScreen onStart={() => navigateTo('MOOD_GRID')} />;
+        content = <WelcomeScreen onStart={() => navigateTo('MOOD_GRID')} />;
+        break;
       case 'MOOD_GRID':
-        return <MoodSelectionScreen onSelectMood={handleMoodSelect} />;
+        content = <MoodSelectionScreen onSelectMood={handleMoodSelect} />;
+        break;
       case 'AI_PROCESSING':
-        return <AIProcessingScreen mood={state.selectedMood!} />;
+        content = <AIProcessingScreen mood={state.selectedMood!} />;
+        break;
       case 'DISCOVERY':
-        return (
+        content = !dataLoaded ? <DiscoverySkeleton /> : (
           <DiscoveryScreen 
             movies={state.movies} 
             currentIndex={state.currentMovieIndex}
@@ -196,12 +204,15 @@ const Index: React.FC = () => {
             currentMood={state.selectedMood!}
           />
         );
+        break;
       case 'WATCHLIST':
-        return <WatchlistScreen movies={state.watchlist} onBack={() => navigateTo('DISCOVERY')} onNavigate={navigateTo} onRemove={(movie) => handleToggleWatchlist(movie)} />;
+        content = <WatchlistScreen movies={state.watchlist} onBack={() => navigateTo('DISCOVERY')} onNavigate={navigateTo} onRemove={(movie) => handleToggleWatchlist(movie)} />;
+        break;
       case 'PROFILE':
-        return <ProfileScreen watchlistCount={state.watchlist.length} swipeCount={swipeCount} watchedCount={watchedCount} onNavigate={navigateTo} />;
+        content = <ProfileScreen watchlistCount={state.watchlist.length} swipeCount={swipeCount} watchedCount={watchedCount} onNavigate={navigateTo} />;
+        break;
       case 'DETAILS':
-        return (
+        content = (
           <DetailsScreen 
             movie={state.selectedMovie!} 
             onBack={() => navigateTo('DISCOVERY')}
@@ -209,9 +220,16 @@ const Index: React.FC = () => {
             onToggleWatchlist={() => handleToggleWatchlist(state.selectedMovie!)}
           />
         );
+        break;
       default:
-        return <WelcomeScreen onStart={() => navigateTo('MOOD_GRID')} />;
+        content = <WelcomeScreen onStart={() => navigateTo('MOOD_GRID')} />;
     }
+
+    return (
+      <ScreenTransition screenKey={screen}>
+        {content}
+      </ScreenTransition>
+    );
   };
 
   return (
