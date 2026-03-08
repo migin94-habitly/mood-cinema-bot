@@ -438,6 +438,13 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
           </div>
         </motion.div>
       </div>
+
+      {/* Celebration overlay */}
+      <AnimatePresence>
+        {celebratingAch && (
+          <CelebrationOverlay achievement={celebratingAch} onDone={handleCelebrationDone} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
