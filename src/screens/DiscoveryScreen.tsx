@@ -248,7 +248,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
 
   return (
     <div
-      className="h-screen w-full flex flex-col bg-background overflow-hidden"
+      className="relative h-screen w-full flex flex-col bg-background overflow-hidden"
       onTouchStart={showFilters ? undefined : handleTouchStart}
       onTouchMove={showFilters ? undefined : handleTouchMove}
       onTouchEnd={showFilters ? undefined : handleTouchEnd}
@@ -293,16 +293,17 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
         </button>
       </header>
 
-      {/* Filter panel */}
+      {/* Filter panel - overlay */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="relative z-30 overflow-hidden"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-x-0 top-[72px] bottom-0 z-40 bg-background/95 backdrop-blur-md overflow-y-auto"
           >
-            <div className="px-6 pb-4 space-y-4">
+            <div className="px-6 py-4 space-y-4">
               {/* Mood filter */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Настроение</p>
