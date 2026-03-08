@@ -70,18 +70,21 @@ export type Database = {
           created_at: string
           id: string
           movie_data: Json
+          movie_id: string
           telegram_user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           movie_data: Json
+          movie_id: string
           telegram_user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           movie_data?: Json
+          movie_id?: string
           telegram_user_id?: string
         }
         Relationships: []

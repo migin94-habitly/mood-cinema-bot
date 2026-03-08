@@ -2,3 +2,6 @@ project_id = "mtxkjhxqnxzfwmkmrbvj"
 
 [functions.movie-recommendations]
 verify_jwt = false
+
+[functions.validate-telegram]
+verify_jwt = false
