@@ -9,6 +9,7 @@ import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
 import { getMovieRecommendations } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
+import { usePersistence } from '@/hooks/usePersistence';
 
 const BACK_MAP: Partial<Record<Screen, Screen>> = {
   MOOD_GRID: 'WELCOME',
