@@ -33,6 +33,16 @@ const Index: React.FC = () => {
   const [swipeCount, setSwipeCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
   const [activeFilters, setActiveFilters] = useState<{ type?: string; genre?: string | null }>({});
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  const handleDataLoaded = useCallback((data: { watchlist: Movie[]; swipeCount: number; watchedCount: number }) => {
+    setState(prev => ({ ...prev, watchlist: data.watchlist }));
+    setSwipeCount(data.swipeCount);
+    setWatchedCount(data.watchedCount);
+    setDataLoaded(true);
+  }, []);
+
+  const { saveStats, addToWatchlist, removeFromWatchlist } = usePersistence(handleDataLoaded);
 
   const screenRef = useRef(state.currentScreen);
   screenRef.current = state.currentScreen;
