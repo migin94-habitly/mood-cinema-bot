@@ -110,7 +110,7 @@ export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate, o
         </button>
       </header>
 
-      <main className="flex-1 p-4 pb-32 overflow-y-auto">
+      <main className="flex-1 p-4 pb-6 overflow-y-auto">
         <div className="flex items-center gap-2 mb-1 text-primary">
           <span className="material-symbols-outlined active-icon">auto_awesome</span>
           <span className="text-xs font-bold uppercase tracking-widest">{movies.length} ФИЛЬМОВ ВЫБРАНО</span>
