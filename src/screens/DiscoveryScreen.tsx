@@ -86,13 +86,30 @@ const SwipeCard: React.FC<{
         <div className="absolute bottom-0 inset-x-0 p-6 pt-20 bg-gradient-to-t from-background via-background/90 to-transparent">
           <div className="glass p-4 rounded-xl border border-border">
             <div className="flex justify-between items-start mb-2">
-              <h2 className="text-2xl font-bold leading-tight">{movie.title}</h2>
-              <div className="flex items-center bg-muted px-2 py-0.5 rounded-lg gap-1 border border-border">
-                <span className="material-symbols-outlined text-warning text-sm fill-1">star</span>
-                <span className="text-xs font-bold">{movie.rating}</span>
+              <div>
+                <h2 className="text-2xl font-bold leading-tight">{movie.title}</h2>
+                {movie.titleOriginal && movie.titleOriginal !== movie.title && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{movie.titleOriginal}</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1 items-end shrink-0 ml-2">
+                <div className="flex items-center bg-muted px-2 py-0.5 rounded-lg gap-1 border border-border">
+                  <span className="text-[9px] font-bold text-warning">IMDB</span>
+                  <span className="text-xs font-bold">{movie.ratingImdb}</span>
+                </div>
+                <div className="flex items-center bg-muted px-2 py-0.5 rounded-lg gap-1 border border-border">
+                  <span className="text-[9px] font-bold text-primary">КП</span>
+                  <span className="text-xs font-bold">{movie.ratingKinopoisk}</span>
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mb-3">
+              {movie.platform && (
+                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-md border border-primary/20 uppercase tracking-wider">{movie.platform}</span>
+              )}
+              {movie.type === 'series' && (
+                <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-1 rounded-md border border-success/20 uppercase tracking-wider">Сериал</span>
+              )}
               {movie.genres.map(g => (
                 <span key={g} className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-md border border-border uppercase tracking-wider">{g}</span>
               ))}
