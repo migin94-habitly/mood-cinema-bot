@@ -27,8 +27,10 @@ const SwipeCard: React.FC<{
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.x > SWIPE_THRESHOLD) {
+      haptic.success();
       onLike();
     } else if (info.offset.x < -SWIPE_THRESHOLD) {
+      haptic.light();
       onPass();
     }
   };
