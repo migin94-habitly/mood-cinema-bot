@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      recommendation_history: {
+        Row: {
+          id: string
+          movie_title: string
+          movie_title_original: string | null
+          recommended_at: string
+          telegram_user_id: string
+        }
+        Insert: {
+          id?: string
+          movie_title: string
+          movie_title_original?: string | null
+          recommended_at?: string
+          telegram_user_id: string
+        }
+        Update: {
+          id?: string
+          movie_title?: string
+          movie_title_original?: string | null
+          recommended_at?: string
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
       user_stats: {
         Row: {
           created_at: string
