@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
 import { Movie, Screen } from '@/types/movie';
+import { haptic } from '@/lib/telegram';
 
 interface Props {
   movies: Movie[];
@@ -26,8 +27,10 @@ const SwipeCard: React.FC<{
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.x > SWIPE_THRESHOLD) {
+      haptic.success();
       onLike();
     } else if (info.offset.x < -SWIPE_THRESHOLD) {
+      haptic.light();
       onPass();
     }
   };
