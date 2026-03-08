@@ -300,7 +300,8 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="relative z-30 overflow-hidden"
+            transition={{ duration: 0.25 }}
+            className="relative z-40 overflow-hidden bg-background border-b border-border"
           >
             <div className="px-6 pb-4 space-y-4">
               {/* Mood filter */}
