@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import { Screen } from '@/types/movie';
-import { getTelegramWebApp } from '@/lib/telegram';
-import { motion } from 'framer-motion';
+import { getTelegramWebApp, haptic } from '@/lib/telegram';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   watchlistCount: number;
@@ -99,6 +99,129 @@ function getLevel(watched: number): { level: number; current: number; needed: nu
   return { level, current, needed: 10 };
 }
 
+// Confetti particle component
+const PARTICLE_COLORS = [
+  'hsl(272, 90%, 55%)', // primary
+  'hsl(280, 80%, 65%)', // purple
+  'hsl(45, 100%, 60%)', // gold
+  'hsl(340, 80%, 55%)', // pink
+  'hsl(200, 90%, 55%)', // blue
+  'hsl(140, 70%, 50%)', // green
+];
+
+const ConfettiParticle: React.FC<{ delay: number; x: number }> = ({ delay, x }) => {
+  const color = PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)];
+  const size = 4 + Math.random() * 6;
+  const rotation = Math.random() * 360;
+
+  return (
+    <motion.div
+      className="absolute rounded-sm"
+      style={{
+        width: size,
+        height: size * (0.5 + Math.random() * 0.8),
+        backgroundColor: color,
+        left: `${x}%`,
+        top: '50%',
+      }}
+      initial={{ opacity: 1, y: 0, x: 0, rotate: 0, scale: 1 }}
+      animate={{
+        opacity: [1, 1, 0],
+        y: [0, -80 - Math.random() * 120, 60 + Math.random() * 80],
+        x: [-20 + Math.random() * 40, -40 + Math.random() * 80],
+        rotate: [0, rotation, rotation * 2],
+        scale: [0, 1.2, 0.5],
+      }}
+      transition={{
+        duration: 1.2 + Math.random() * 0.6,
+        delay: delay,
+        ease: 'easeOut',
+      }}
+    />
+  );
+};
+
+const CelebrationOverlay: React.FC<{ achievement: Achievement; onDone: () => void }> = ({ achievement, onDone }) => {
+  useEffect(() => {
+    const t = setTimeout(onDone, 2500);
+    return () => clearTimeout(t);
+  }, [onDone]);
+
+  const particles = useMemo(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      delay: Math.random() * 0.3,
+      x: 20 + Math.random() * 60,
+    })), []);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center pointer-events-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onDone}
+    >
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
+      <motion.div
+        className="relative flex flex-col items-center z-10"
+        initial={{ scale: 0.3, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        transition={{ type: 'spring', damping: 12, stiffness: 200 }}
+      >
+        {/* Confetti particles */}
+        <div className="absolute inset-0 overflow-visible">
+          {particles.map(p => (
+            <ConfettiParticle key={p.id} delay={p.delay} x={p.x} />
+          ))}
+        </div>
+
+        {/* Glow ring */}
+        <motion.div
+          className="size-24 rounded-full flex items-center justify-center mb-4"
+          style={{
+            background: 'linear-gradient(135deg, hsl(272, 90%, 55%), hsl(280, 80%, 65%))',
+            boxShadow: '0 0 40px hsla(272, 90%, 55%, 0.5), 0 0 80px hsla(272, 90%, 55%, 0.2)',
+          }}
+          initial={{ scale: 0 }}
+          animate={{ scale: [0, 1.3, 1] }}
+          transition={{ duration: 0.5, times: [0, 0.6, 1] }}
+        >
+          <span className="text-4xl">{achievement.icon}</span>
+        </motion.div>
+
+        <motion.p
+          className="text-xs font-bold uppercase tracking-[0.2em] text-primary mb-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          Достижение разблокировано!
+        </motion.p>
+
+        <motion.h3
+          className="text-xl font-black text-foreground mb-1"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          {achievement.title}
+        </motion.h3>
+
+        <motion.p
+          className="text-sm text-muted-foreground"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          {achievement.description}
+        </motion.p>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, watchedCount, onNavigate }) => {
   const tgUser = useMemo(() => {
     const tg = getTelegramWebApp();
@@ -118,6 +241,36 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
   const { level, current, needed } = getLevel(watchedCount);
+
+  // Track newly unlocked achievements
+  const [celebratingAch, setCelebratingAch] = useState<Achievement | null>(null);
+  const prevUnlockedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const storageKey = 'seen_achievements';
+    const seen = new Set<string>(JSON.parse(localStorage.getItem(storageKey) || '[]'));
+    const newlyUnlocked = achievements.filter(a => a.unlocked && !seen.has(a.id));
+
+    if (newlyUnlocked.length > 0 && prevUnlockedRef.current.size > 0) {
+      // Only celebrate if we've initialized before (not first load)
+      haptic.success();
+      setCelebratingAch(newlyUnlocked[0]);
+    }
+
+    // Save current state
+    const currentUnlocked = achievements.filter(a => a.unlocked).map(a => a.id);
+    localStorage.setItem(storageKey, JSON.stringify(currentUnlocked));
+    prevUnlockedRef.current = new Set(currentUnlocked);
+  }, [achievements]);
+
+  // On first mount, seed prevUnlockedRef
+  useEffect(() => {
+    const storageKey = 'seen_achievements';
+    const seen = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    prevUnlockedRef.current = new Set(seen);
+  }, []);
+
+  const handleCelebrationDone = useCallback(() => setCelebratingAch(null), []);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-y-auto">
@@ -285,6 +438,13 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
           </div>
         </motion.div>
       </div>
+
+      {/* Celebration overlay */}
+      <AnimatePresence>
+        {celebratingAch && (
+          <CelebrationOverlay achievement={celebratingAch} onDone={handleCelebrationDone} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
