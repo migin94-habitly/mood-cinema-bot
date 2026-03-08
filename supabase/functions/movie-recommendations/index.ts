@@ -14,6 +14,38 @@ const MOOD_CONTEXT: Record<string, string> = {
   Relaxed: "лёгкие фильмы и сериалы для расслабленного просмотра, документалки о природе, feel-good кино. Примеры: Шеф-повар, Наша планета, Друзья, Тед Лассо",
 };
 
+async function searchTmdbPoster(title: string, year: number, apiKey: string): Promise<string | null> {
+  try {
+    const url = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(title)}&year=${year}&language=ru-RU`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const result = data.results?.[0];
+    if (result?.poster_path) {
+      return `https://image.tmdb.org/t/p/w500${result.poster_path}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function searchTmdbPerson(name: string, apiKey: string): Promise<string | null> {
+  try {
+    const url = `https://api.themoviedb.org/3/search/person?api_key=${apiKey}&query=${encodeURIComponent(name)}&language=ru-RU`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const result = data.results?.[0];
+    if (result?.profile_path) {
+      return `https://image.tmdb.org/t/p/w185${result.profile_path}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -21,6 +53,8 @@ serve(async (req) => {
     const { mood } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
 
     const moodContext = MOOD_CONTEXT[mood] || mood;
 
@@ -145,28 +179,55 @@ serve(async (req) => {
 
     const data = await response.json();
     
+    let movies: any[] = [];
+    
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall) {
       const args = JSON.parse(toolCall.function.arguments);
-      return new Response(JSON.stringify({ movies: args.movies }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const content = data.choices?.[0]?.message?.content;
-    if (content) {
-      try {
-        const parsed = JSON.parse(content);
-        const movies = Array.isArray(parsed) ? parsed : parsed.movies || [];
-        return new Response(JSON.stringify({ movies }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } catch {
-        console.error("Failed to parse AI response content");
+      movies = args.movies || [];
+    } else {
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        try {
+          const parsed = JSON.parse(content);
+          movies = Array.isArray(parsed) ? parsed : parsed.movies || [];
+        } catch {
+          console.error("Failed to parse AI response content");
+        }
       }
     }
 
-    return new Response(JSON.stringify({ movies: [] }), {
+    // Enrich with TMDB posters if API key is available
+    if (TMDB_API_KEY && movies.length > 0) {
+      const enriched = await Promise.all(
+        movies.map(async (movie: any) => {
+          // Search for movie poster
+          const posterUrl = await searchTmdbPoster(
+            movie.titleOriginal || movie.title,
+            movie.year,
+            TMDB_API_KEY
+          );
+          if (posterUrl) movie.posterUrl = posterUrl;
+
+          // Search for actor photos
+          if (movie.actors && Array.isArray(movie.actors)) {
+            const actorsWithPhotos = await Promise.all(
+              movie.actors.map(async (actor: any) => {
+                const photoUrl = await searchTmdbPerson(actor.name, TMDB_API_KEY);
+                if (photoUrl) actor.imageUrl = photoUrl;
+                return actor;
+              })
+            );
+            movie.actors = actorsWithPhotos;
+          }
+
+          return movie;
+        })
+      );
+      movies = enriched;
+    }
+
+    return new Response(JSON.stringify({ movies }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
