@@ -388,7 +388,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
         )}
       </AnimatePresence>
 
-      <main className="flex-1 relative px-4 py-2 flex items-center justify-center">
+      <main className={`relative z-10 flex-1 px-4 py-2 flex items-center justify-center ${showFilters ? 'pointer-events-none' : ''}`}>
         {isRefreshing ? (
           <div className="flex flex-col items-center gap-4">
             <motion.div
