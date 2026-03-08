@@ -3,7 +3,7 @@ import { Screen, MoodType, Movie, AppState } from '@/types/movie';
 import { WelcomeScreen } from '@/screens/WelcomeScreen';
 import { MoodSelectionScreen } from '@/screens/MoodSelectionScreen';
 import { AIProcessingScreen } from '@/screens/AIProcessingScreen';
-import { DiscoveryScreen } from '@/screens/DiscoveryScreen';
+import { DiscoveryScreen, DiscoveryFilters } from '@/screens/DiscoveryScreen';
 import { WatchlistScreen } from '@/screens/WatchlistScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
@@ -31,11 +31,11 @@ const Index: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [swipeCount, setSwipeCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
+  const [activeFilters, setActiveFilters] = useState<{ type?: string; genre?: string | null }>({});
 
   const screenRef = useRef(state.currentScreen);
   screenRef.current = state.currentScreen;
 
-  // ── Telegram WebApp init ──
   useEffect(() => {
     const tg = getTelegramWebApp();
     if (!tg) return;
@@ -48,7 +48,6 @@ const Index: React.FC = () => {
     if (tp.bg_color) tg.setBackgroundColor(tp.bg_color);
   }, []);
 
-  // ── Telegram BackButton ──
   useEffect(() => {
     const tg = getTelegramWebApp();
     if (!tg) return;
@@ -72,17 +71,19 @@ const Index: React.FC = () => {
 
   const handleMoodSelect = (mood: MoodType) => {
     haptic.medium();
+    setActiveFilters({});
     setState(prev => ({ ...prev, selectedMood: mood, currentScreen: 'AI_PROCESSING' }));
   };
 
-  const fetchMovies = useCallback(async (mood: MoodType) => {
-    const movies = await getMovieRecommendations(mood);
+  const fetchMovies = useCallback(async (mood: MoodType, type?: string, genre?: string | null) => {
+    const movies = await getMovieRecommendations(mood, type, genre);
     haptic.success();
     setState(prev => ({
       ...prev,
       movies: movies.length > 0 ? movies : [],
       currentMovieIndex: 0,
-      currentScreen: 'DISCOVERY'
+      currentScreen: 'DISCOVERY',
+      selectedMood: mood,
     }));
     setIsRefreshing(false);
   }, []);
@@ -90,9 +91,15 @@ const Index: React.FC = () => {
   const handleRefresh = useCallback(() => {
     if (state.selectedMood && !isRefreshing) {
       setIsRefreshing(true);
-      fetchMovies(state.selectedMood);
+      fetchMovies(state.selectedMood, activeFilters.type, activeFilters.genre);
     }
-  }, [state.selectedMood, isRefreshing, fetchMovies]);
+  }, [state.selectedMood, isRefreshing, fetchMovies, activeFilters]);
+
+  const handleFiltersChange = useCallback((filters: DiscoveryFilters) => {
+    setActiveFilters({ type: filters.type, genre: filters.genre });
+    setIsRefreshing(true);
+    fetchMovies(filters.mood, filters.type === 'all' ? undefined : filters.type, filters.genre);
+  }, [fetchMovies]);
 
   useEffect(() => {
     if (state.currentScreen === 'AI_PROCESSING' && state.selectedMood) {
@@ -157,7 +164,9 @@ const Index: React.FC = () => {
             onDetails={openDetails}
             onNavigate={navigateTo}
             onRefresh={handleRefresh}
+            onFiltersChange={handleFiltersChange}
             isRefreshing={isRefreshing}
+            currentMood={state.selectedMood!}
           />
         );
       case 'WATCHLIST':

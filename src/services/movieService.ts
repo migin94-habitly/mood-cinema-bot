@@ -1,10 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Movie, MoodType } from '@/types/movie';
 
-export async function getMovieRecommendations(mood: MoodType): Promise<Movie[]> {
+export async function getMovieRecommendations(
+  mood: MoodType,
+  type?: string,
+  genre?: string | null
+): Promise<Movie[]> {
   try {
     const { data, error } = await supabase.functions.invoke('movie-recommendations', {
-      body: { mood },
+      body: { mood, type, genre },
     });
 
     if (error) {
