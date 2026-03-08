@@ -14,6 +14,6 @@ export function trackEvent(eventType: EventType, data: Record<string, unknown> =
   // Fire-and-forget — don't block UI
   supabase
     .from('analytics_events')
-    .insert({ telegram_user_id: userId, event_type: eventType, event_data: data })
+    .insert([{ telegram_user_id: userId, event_type: eventType, event_data: data as any }])
     .then();
 }
