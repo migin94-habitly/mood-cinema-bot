@@ -50,9 +50,9 @@ serve(async (req) => {
     const moodContext = MOOD_CONTEXT[mood] || mood;
 
     // Build dynamic constraints based on filters
-    let typeConstraint = "Микс фильмов и сериалов (примерно 4 фильма + 3 сериала)";
-    if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все 7 результатов должны быть фильмами (type: 'movie').";
-    else if (type === "series") typeConstraint = "ТОЛЬКО СЕРИАЛЫ, никаких фильмов. Все 7 результатов должны быть сериалами (type: 'series').";
+    let typeConstraint = "Микс фильмов и сериалов (примерно 7 фильмов + 5 сериалов)";
+    if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все 12 результатов должны быть фильмами (type: 'movie').";
+    else if (type === "series") typeConstraint = "ТОЛЬКО СЕРИАЛЫ, никаких фильмов. Все 12 результатов должны быть сериалами (type: 'series').";
 
     let genreConstraint = "";
     if (genre) genreConstraint = `\nОБЯЗАТЕЛЬНЫЙ ЖАНР: Все рекомендации ДОЛЖНЫ относиться к жанру "${genre}". Это главный приоритет при подборе.`;
@@ -64,7 +64,7 @@ serve(async (req) => {
 
     const prompt = `Ты — эксперт по кино и сериалам с энциклопедическими знаниями.
 
-ЗАДАЧА: Подбери 7 РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}".
+ЗАДАЧА: Подбери 12 РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}".
 Контекст: ${moodContext}
 
 ФИЛЬТРЫ:
@@ -108,7 +108,7 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
           type: "function",
           function: {
             name: "recommend_movies",
-            description: "Return 7 real movie/series recommendations",
+            description: "Return 12 real movie/series recommendations",
             parameters: {
               type: "object",
               properties: {
