@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
 import { Movie, Screen } from '@/types/movie';
 import { haptic } from '@/lib/telegram';
@@ -10,6 +10,8 @@ interface Props {
   onPass: () => void;
   onDetails: (movie: Movie) => void;
   onNavigate: (screen: Screen) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const SWIPE_THRESHOLD = 120;
@@ -125,9 +127,35 @@ const SwipeCard: React.FC<{
   );
 };
 
-export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike, onPass, onDetails, onNavigate }) => {
+export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike, onPass, onDetails, onNavigate, onRefresh, isRefreshing }) => {
   const currentMovie = movies[currentIndex];
   const nextMovie = movies[currentIndex + 1];
+
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const touchStartY = useRef(0);
+  const PULL_THRESHOLD = 80;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (dy > 0 && window.scrollY === 0) {
+      setIsPulling(true);
+      setPullY(Math.min(dy * 0.5, 120));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullY >= PULL_THRESHOLD && onRefresh && !isRefreshing) {
+      haptic.medium();
+      onRefresh();
+    }
+    setPullY(0);
+    setIsPulling(false);
+  }, [pullY, onRefresh, isRefreshing]);
 
   if (!currentMovie) {
     return (
@@ -150,7 +178,33 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
   }
 
   return (
-    <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
+    <div
+      className="h-screen w-full flex flex-col bg-background overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      <motion.div
+        className="flex items-center justify-center overflow-hidden"
+        animate={{ height: isPulling || isRefreshing ? Math.max(pullY, isRefreshing ? 48 : 0) : 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      >
+        <motion.div
+          animate={{ rotate: isRefreshing ? 360 : (pullY / PULL_THRESHOLD) * 180 }}
+          transition={isRefreshing ? { repeat: Infinity, duration: 0.8, ease: 'linear' } : { duration: 0 }}
+        >
+          <span className={`material-symbols-outlined text-2xl ${pullY >= PULL_THRESHOLD || isRefreshing ? 'text-primary' : 'text-muted-foreground'}`}>
+            {isRefreshing ? 'progress_activity' : 'refresh'}
+          </span>
+        </motion.div>
+        {!isRefreshing && pullY > 10 && (
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-2">
+            {pullY >= PULL_THRESHOLD ? 'Отпустите' : 'Потяните вниз'}
+          </span>
+        )}
+      </motion.div>
+
       <header className="flex items-center justify-between px-6 py-4">
         <button onClick={() => onNavigate('PROFILE')} className="size-10 rounded-full glass flex items-center justify-center">
           <span className="material-symbols-outlined text-muted-foreground">person</span>
