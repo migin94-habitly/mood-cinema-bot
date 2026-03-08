@@ -1,12 +1,102 @@
 import React, { useMemo } from 'react';
 import { Screen } from '@/types/movie';
 import { getTelegramWebApp } from '@/lib/telegram';
+import { motion } from 'framer-motion';
 
 interface Props {
   watchlistCount: number;
   swipeCount: number;
   watchedCount: number;
   onNavigate: (screen: Screen) => void;
+}
+
+interface Achievement {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  unlocked: boolean;
+  progress?: number; // 0-1
+  progressLabel?: string;
+}
+
+function getAchievements(swipes: number, watched: number, watchlist: number): Achievement[] {
+  return [
+    {
+      id: 'first_swipe',
+      icon: '👆',
+      title: 'Первый свайп',
+      description: 'Сделай свой первый свайп',
+      unlocked: swipes >= 1,
+    },
+    {
+      id: 'explorer',
+      icon: '🧭',
+      title: 'Исследователь',
+      description: 'Свайпни 10 фильмов',
+      unlocked: swipes >= 10,
+      progress: Math.min(swipes / 10, 1),
+      progressLabel: `${Math.min(swipes, 10)}/10`,
+    },
+    {
+      id: 'cinephile',
+      icon: '🎬',
+      title: 'Синефил',
+      description: 'Свайпни 50 фильмов',
+      unlocked: swipes >= 50,
+      progress: Math.min(swipes / 50, 1),
+      progressLabel: `${Math.min(swipes, 50)}/50`,
+    },
+    {
+      id: 'first_like',
+      icon: '❤️',
+      title: 'Первая любовь',
+      description: 'Добавь фильм в шортлист',
+      unlocked: watched >= 1,
+    },
+    {
+      id: 'collector',
+      icon: '📚',
+      title: 'Коллекционер',
+      description: 'Собери 5 фильмов в шортлисте',
+      unlocked: watchlist >= 5,
+      progress: Math.min(watchlist / 5, 1),
+      progressLabel: `${Math.min(watchlist, 5)}/5`,
+    },
+    {
+      id: 'binge',
+      icon: '🍿',
+      title: 'Марафонец',
+      description: 'Лайкни 10 фильмов подряд',
+      unlocked: watched >= 10,
+      progress: Math.min(watched / 10, 1),
+      progressLabel: `${Math.min(watched, 10)}/10`,
+    },
+    {
+      id: 'addict',
+      icon: '🏆',
+      title: 'Киноман',
+      description: 'Свайпни 100 фильмов',
+      unlocked: swipes >= 100,
+      progress: Math.min(swipes / 100, 1),
+      progressLabel: `${Math.min(swipes, 100)}/100`,
+    },
+    {
+      id: 'curator',
+      icon: '🎯',
+      title: 'Куратор',
+      description: 'Собери 20 фильмов в шортлисте',
+      unlocked: watchlist >= 20,
+      progress: Math.min(watchlist / 20, 1),
+      progressLabel: `${Math.min(watchlist, 20)}/20`,
+    },
+  ];
+}
+
+function getLevel(watched: number): { level: number; current: number; needed: number } {
+  const level = Math.floor(watched / 10) + 1;
+  const current = watched % 10;
+  return { level, current, needed: 10 };
 }
 
 export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, watchedCount, onNavigate }) => {
@@ -21,85 +111,180 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
   const username = tgUser?.username ? `@${tgUser.username}` : '@movie_mood_user';
   const avatarUrl = tgUser?.photo_url || 'https://picsum.photos/seed/user/200/200';
 
+  const achievements = useMemo(
+    () => getAchievements(swipeCount, watchedCount, watchlistCount),
+    [swipeCount, watchedCount, watchlistCount]
+  );
+
+  const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const { level, current, needed } = getLevel(watchedCount);
+
   return (
-    <div className="h-screen w-full flex flex-col bg-background">
-      <header className="sticky top-0 z-50 glass border-b border-border px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">movie_filter</span>
-          <h1 className="text-lg font-bold tracking-tight">Movie Mood</h1>
-        </div>
-        <button className="size-10 rounded-full hover:bg-muted flex items-center justify-center">
-          <span className="material-symbols-outlined">settings</span>
+    <div className="h-screen w-full flex flex-col bg-background overflow-y-auto">
+      {/* Compact header */}
+      <header className="sticky top-0 z-30 glass border-b border-border px-4 py-3 flex items-center gap-3">
+        <button onClick={() => onNavigate('DISCOVERY')} className="size-9 rounded-full hover:bg-muted flex items-center justify-center">
+          <span className="material-symbols-outlined text-xl">arrow_back</span>
         </button>
+        <h1 className="text-base font-bold flex-1">Профиль</h1>
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-32">
-        <section className="flex flex-col items-center px-6 py-10">
-          <div className="relative">
-            <div className="size-28 rounded-full p-1 bg-gradient-to-tr from-primary to-purple-400">
-              <div className="size-full rounded-full border-4 border-background bg-cover bg-center" style={{ backgroundImage: `url('${avatarUrl}')` }} />
-            </div>
-            <div className="absolute bottom-1 right-1 bg-primary size-7 rounded-full border-2 border-background flex items-center justify-center">
-              <span className="material-symbols-outlined text-[16px] text-primary-foreground">edit</span>
+      <div className="px-4 pb-6">
+        {/* Profile card — compact row */}
+        <motion.div
+          className="flex items-center gap-4 py-5"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="relative shrink-0">
+            <div className="size-16 rounded-full p-0.5 bg-gradient-to-tr from-primary to-purple-400">
+              <div
+                className="size-full rounded-full border-2 border-background bg-cover bg-center"
+                style={{ backgroundImage: `url('${avatarUrl}')` }}
+              />
             </div>
           </div>
-          <div className="mt-4 text-center">
-            <h2 className="text-2xl font-bold">{displayName}</h2>
-            <p className="text-primary font-medium">{username}</p>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold truncate">{displayName}</h2>
+            <p className="text-primary text-sm font-medium">{username}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-xs text-muted-foreground">Уровень</div>
+            <div className="text-2xl font-black text-primary">{level}</div>
+          </div>
+        </motion.div>
+
+        {/* Level progress */}
+        <motion.div
+          className="mb-5"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex justify-between text-[10px] mb-1.5">
+            <span className="text-muted-foreground font-bold uppercase tracking-widest">Прогресс уровня</span>
+            <span className="font-bold">{current}/{needed}</span>
+          </div>
+          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-primary to-purple-400 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${(current / needed) * 100}%` }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              style={{ boxShadow: '0 0 8px hsla(272, 90%, 55%, 0.4)' }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Лайкни ещё {needed - current} фильмов до уровня {level + 1}
+          </p>
+        </motion.div>
+
+        {/* Stats row */}
+        <motion.div
+          className="grid grid-cols-3 gap-2 mb-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          {[
+            { value: swipeCount, label: 'Свайпов', icon: 'swipe' },
+            { value: watchedCount, label: 'Лайков', icon: 'favorite' },
+            { value: watchlistCount, label: 'В списке', icon: 'bookmark' },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-surface/50 border border-border rounded-xl p-3 text-center">
+              <span className="material-symbols-outlined text-primary text-lg mb-0.5 block">{stat.icon}</span>
+              <span className="text-xl font-black block">{stat.value}</span>
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">{stat.label}</span>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Quick actions */}
+        <motion.div
+          className="flex gap-2 mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <button
+            onClick={() => onNavigate('WATCHLIST')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-bold active:scale-[0.98] transition-transform"
+          >
+            <span className="material-symbols-outlined text-lg">bookmark</span>
+            Шортлист
+          </button>
+          <button
+            onClick={() => onNavigate('MOOD_GRID')}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface/50 border border-border text-sm font-bold active:scale-[0.98] transition-transform"
+          >
+            <span className="material-symbols-outlined text-lg">movie_filter</span>
+            Новый подбор
+          </button>
+        </motion.div>
+
+        {/* Achievements */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-bold">Достижения</h3>
+            <span className="text-xs text-primary font-bold">{unlockedCount}/{achievements.length}</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 w-full mt-10">
-            <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold">{swipeCount}</span>
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mt-1">Свайпов</span>
-            </div>
-            <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold">{watchedCount}</span>
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mt-1">Смотрел</span>
-            </div>
-            <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold">{watchlistCount}</span>
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mt-1 text-center">В списке</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-4 px-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold">Достижения</h3>
-            <span className="text-primary text-sm font-bold">Все</span>
-          </div>
-          <div className="bg-gradient-to-br from-surface to-background border border-border rounded-2xl p-5 relative overflow-hidden group">
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="size-16 rounded-2xl bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center shrink-0 shadow-lg shadow-primary/30">
-                <span className="material-symbols-outlined text-primary-foreground text-3xl">military_tech</span>
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-lg">Киноман {Math.floor(watchedCount / 10) + 1}-го уровня</p>
-                <p className="text-[11px] text-muted-foreground mb-3">До следующего уровня осталось {10 - (watchedCount % 10)} фильмов</p>
-                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full shadow-[0_0_8px_hsla(272,90%,55%,0.4)]" style={{ width: `${(watchedCount % 10) * 10}%` }} />
+          <div className="space-y-2">
+            {achievements.map((ach, i) => (
+              <motion.div
+                key={ach.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + i * 0.04 }}
+                className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                  ach.unlocked
+                    ? 'bg-primary/5 border-primary/20'
+                    : 'bg-surface/30 border-border opacity-60'
+                }`}
+              >
+                <div
+                  className={`size-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                    ach.unlocked
+                      ? 'bg-gradient-to-br from-primary to-purple-500 shadow-md shadow-primary/20'
+                      : 'bg-muted'
+                  }`}
+                >
+                  {ach.unlocked ? (
+                    <span>{ach.icon}</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-muted-foreground text-lg">lock</span>
+                  )}
                 </div>
-              </div>
-            </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-sm truncate">{ach.title}</p>
+                    {ach.unlocked && (
+                      <span className="material-symbols-outlined text-primary text-sm fill-1">verified</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">{ach.description}</p>
+                  {!ach.unlocked && ach.progress !== undefined && (
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary/50 rounded-full"
+                          style={{ width: `${ach.progress * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-[9px] font-bold text-muted-foreground">{ach.progressLabel}</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
           </div>
-        </section>
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 glass-nav border-t border-border pb-10 pt-4 px-10 flex justify-between items-center">
-        <button onClick={() => onNavigate('DISCOVERY')} className="flex flex-col items-center gap-1 text-muted-foreground">
-          <span className="material-symbols-outlined text-2xl">explore</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Поиск</span>
-        </button>
-        <button onClick={() => onNavigate('WATCHLIST')} className="flex flex-col items-center gap-1 text-muted-foreground">
-          <span className="material-symbols-outlined text-2xl">bookmark</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Список</span>
-        </button>
-        <button onClick={() => onNavigate('PROFILE')} className="flex flex-col items-center gap-1 text-primary">
-          <span className="material-symbols-outlined text-2xl fill-1">account_circle</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Профиль</span>
-        </button>
-      </nav>
+        </motion.div>
+      </div>
     </div>
   );
 };
