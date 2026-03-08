@@ -10,7 +10,7 @@ interface Props {
 
 export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, onToggleWatchlist }) => {
   const handleShare = async () => {
-    const shareText = `Посмотри этот фильм: ${movie.title} (${movie.year}). Рейтинг: ${movie.rating}/10. Рекомендация от Movie Mood AI!`;
+    const shareText = `Посмотри: ${movie.title} (${movie.year}). IMDB: ${movie.ratingImdb}, КП: ${movie.ratingKinopoisk}. Рекомендация от Movie Mood AI!`;
     const shareUrl = window.location.href;
 
     if (navigator.share) {
@@ -46,14 +46,26 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
 
       <div className="relative -mt-20 px-6 pb-48 z-10 space-y-8">
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 rounded">HD 4K</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            {movie.platform && (
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30 rounded">{movie.platform}</span>
+            )}
+            {movie.type === 'series' && (
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-success/20 text-success border border-success/30 rounded">Сериал</span>
+            )}
             <div className="flex items-center gap-1 text-warning">
-              <span className="material-symbols-outlined text-[16px] fill-1">star</span>
-              <span className="text-sm font-bold">{movie.rating}</span>
+              <span className="text-[10px] font-bold">IMDB</span>
+              <span className="text-sm font-bold">{movie.ratingImdb}</span>
+            </div>
+            <div className="flex items-center gap-1 text-primary">
+              <span className="text-[10px] font-bold">КП</span>
+              <span className="text-sm font-bold">{movie.ratingKinopoisk}</span>
             </div>
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight">{movie.title}</h1>
+          {movie.titleOriginal && movie.titleOriginal !== movie.title && (
+            <p className="text-muted-foreground text-xs">{movie.titleOriginal}</p>
+          )}
           <p className="text-muted-foreground text-sm font-medium">{movie.year} • {movie.duration} • {movie.genres.join(', ')}</p>
         </div>
 
