@@ -5,6 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const MOOD_CONTEXT: Record<string, string> = {
+  Epic: "эпичные, масштабные блокбастеры с потрясающими спецэффектами, боевики, фантастика, супергеройские фильмы. Примеры настроения: Дюна, Оппенгеймер, Интерстеллар, Мстители",
+  Romantic: "романтические фильмы и сериалы, драмы о любви, романтические комедии. Примеры: Бриджертон, Нормальные люди, Ла-Ла Ленд, Дневник памяти",
+  Scared: "хорроры, триллеры, мистика, саспенс. Примеры: Улыбка, Астрал, Тихое место, Очень странные дела, Призраки дома на холме",
+  Funny: "комедии, ситкомы, стендап-шоу, пародии. Примеры: Тед Лассо, Медведь, Убийства в одном здании, Барби",
+  Mysterious: "детективы, криминальные триллеры, загадочные истории. Примеры: Стеклянная луковица, Настоящий детектив, Тьма, Видеть",
+  Relaxed: "лёгкие фильмы и сериалы для расслабленного просмотра, документалки о природе, feel-good кино. Примеры: Шеф-повар, Наша планета, Друзья, Тед Лассо",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -13,12 +22,42 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const prompt = `Act as a movie recommendation expert. Suggest 5 movies that perfectly fit a '${mood}' mood. 
-For each movie, provide realistic details including title, release year, duration, IMDb-like rating, genres, 
-a short engaging description (in Russian), and a few main cast members.
-For images, use 'https://picsum.photos/seed/{movie_title_no_spaces}/400/600' for posterUrl 
-and 'https://picsum.photos/seed/{actor_name_no_spaces}/100/100' for actor image URLs.
-Return ONLY movies and series. Mix well-known and hidden gems.`;
+    const moodContext = MOOD_CONTEXT[mood] || mood;
+
+    const prompt = `Ты — эксперт по кино и сериалам с энциклопедическими знаниями о контенте стриминговых платформ.
+
+ЗАДАЧА: Подбери 7 РЕАЛЬНЫХ фильмов и сериалов, которые идеально подходят под настроение "${mood}".
+Контекст настроения: ${moodContext}
+
+КРИТИЧЕСКИ ВАЖНЫЕ ТРЕБОВАНИЯ:
+1. ТОЛЬКО РЕАЛЬНО СУЩЕСТВУЮЩИЕ фильмы и сериалы — никаких выдуманных!
+2. Приоритет: контент 2022-2025 годов, но можно включить 1-2 культовых классики
+3. Микс фильмов и сериалов (примерно 4 фильма + 3 сериала)
+4. Рейтинги должны быть РЕАЛЬНЫМИ — используй свои знания о рейтингах IMDB и Кинопоиска
+5. Указывай РЕАЛЬНУЮ платформу, где контент доступен для просмотра
+
+ПЛАТФОРМЫ ДЛЯ ПОИСКА (приоритет):
+- Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+
+- HDRezka, Кинопоиск HD, Okko, IVI, Wink
+- Hulu, Paramount+
+
+ДЛЯ КАЖДОГО ФИЛЬМА/СЕРИАЛА УКАЖИ:
+- title: название на русском
+- titleOriginal: оригинальное название на английском  
+- year: год выпуска
+- duration: длительность (для сериалов: "X сезонов")
+- ratingImdb: рейтинг IMDB (от 1.0 до 10.0, реальный)
+- ratingKinopoisk: рейтинг Кинопоиска (от 1.0 до 10.0, реальный)
+- genres: жанры на русском
+- description: захватывающее описание на русском (2-3 предложения)
+- platform: основная платформа для просмотра
+- type: "movie" или "series"
+- actors: 2-3 главных актёра (реальные имена)
+
+Для posterUrl используй: https://picsum.photos/seed/{titleOriginal_no_spaces}/400/600
+Для imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/100
+
+ВАЖНО: НЕ повторяй очевидные фильмы. Включай как популярные хиты, так и менее известные жемчужины с высокими рейтингами.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -31,7 +70,7 @@ Return ONLY movies and series. Mix well-known and hidden gems.`;
         messages: [
           {
             role: "system",
-            content: "You are a movie recommendation expert. Always respond with valid JSON only, no markdown, no code blocks. Return an array of movie objects."
+            content: "Ты — профессиональный кинокритик и куратор контента для стриминговых платформ. Ты знаешь реальные рейтинги IMDB и Кинопоиска для всех популярных фильмов и сериалов. Ты никогда не выдумываешь фильмы — рекомендуешь только реально существующие."
           },
           { role: "user", content: prompt }
         ],
@@ -40,7 +79,7 @@ Return ONLY movies and series. Mix well-known and hidden gems.`;
             type: "function",
             function: {
               name: "recommend_movies",
-              description: "Return 5 movie recommendations based on mood",
+              description: "Return 7 real movie/series recommendations based on mood with accurate IMDB and Kinopoisk ratings",
               parameters: {
                 type: "object",
                 properties: {
@@ -50,13 +89,17 @@ Return ONLY movies and series. Mix well-known and hidden gems.`;
                       type: "object",
                       properties: {
                         id: { type: "string" },
-                        title: { type: "string" },
+                        title: { type: "string", description: "Russian title" },
+                        titleOriginal: { type: "string", description: "Original English title" },
                         year: { type: "number" },
-                        duration: { type: "string" },
-                        rating: { type: "number" },
+                        duration: { type: "string", description: "e.g. '148 мин' or '3 сезона'" },
+                        ratingImdb: { type: "number", description: "Real IMDB rating 1.0-10.0" },
+                        ratingKinopoisk: { type: "number", description: "Real Kinopoisk rating 1.0-10.0" },
                         genres: { type: "array", items: { type: "string" } },
-                        description: { type: "string" },
+                        description: { type: "string", description: "2-3 sentences in Russian" },
                         posterUrl: { type: "string" },
+                        platform: { type: "string", description: "Streaming platform name" },
+                        type: { type: "string", enum: ["movie", "series"] },
                         actors: {
                           type: "array",
                           items: {
@@ -69,7 +112,7 @@ Return ONLY movies and series. Mix well-known and hidden gems.`;
                           }
                         }
                       },
-                      required: ["id", "title", "year", "duration", "rating", "genres", "description", "posterUrl", "actors"]
+                      required: ["id", "title", "titleOriginal", "year", "duration", "ratingImdb", "ratingKinopoisk", "genres", "description", "posterUrl", "platform", "type", "actors"]
                     }
                   }
                 },
@@ -85,27 +128,23 @@ Return ONLY movies and series. Mix well-known and hidden gems.`;
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Слишком много запросов, попробуйте позже." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "Необходимо пополнить баланс." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
     
-    // Extract from tool call response
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall) {
       const args = JSON.parse(toolCall.function.arguments);
@@ -114,7 +153,6 @@ Return ONLY movies and series. Mix well-known and hidden gems.`;
       });
     }
 
-    // Fallback: try to parse content directly
     const content = data.choices?.[0]?.message?.content;
     if (content) {
       try {
@@ -134,8 +172,7 @@ Return ONLY movies and series. Mix well-known and hidden gems.`;
   } catch (e) {
     console.error("movie-recommendations error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
