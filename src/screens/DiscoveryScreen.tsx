@@ -455,20 +455,6 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
         </motion.button>
       </div>
 
-      <nav className="glass-nav border-t border-border pb-10 pt-4 px-8 flex justify-between items-center">
-        <button onClick={() => onNavigate('DISCOVERY')} className="flex flex-col items-center gap-1 text-primary">
-          <span className="material-symbols-outlined text-2xl fill-1">explore</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Обзор</span>
-        </button>
-        <button onClick={() => onNavigate('WATCHLIST')} className="flex flex-col items-center gap-1 text-muted-foreground">
-          <span className="material-symbols-outlined text-2xl">bookmarks</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Список</span>
-        </button>
-        <button onClick={() => onNavigate('PROFILE')} className="flex flex-col items-center gap-1 text-muted-foreground">
-          <span className="material-symbols-outlined text-2xl">person</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Профиль</span>
-        </button>
-      </nav>
     </div>
   );
 };

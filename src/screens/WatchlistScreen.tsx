@@ -110,7 +110,7 @@ export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate, o
         </button>
       </header>
 
-      <main className="flex-1 p-4 pb-32 overflow-y-auto">
+      <main className="flex-1 p-4 pb-6 overflow-y-auto">
         <div className="flex items-center gap-2 mb-1 text-primary">
           <span className="material-symbols-outlined active-icon">auto_awesome</span>
           <span className="text-xs font-bold uppercase tracking-widest">{movies.length} ФИЛЬМОВ ВЫБРАНО</span>
@@ -139,20 +139,6 @@ export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate, o
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 glass-nav border-t border-border pb-10 pt-4 px-10 flex justify-between items-center">
-        <button onClick={() => onNavigate('DISCOVERY')} className="flex flex-col items-center gap-1 text-muted-foreground">
-          <span className="material-symbols-outlined text-2xl">explore</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Обзор</span>
-        </button>
-        <button onClick={() => onNavigate('WATCHLIST')} className="flex flex-col items-center gap-1 text-primary">
-          <span className="material-symbols-outlined text-2xl fill-1">favorite</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Шортлист</span>
-        </button>
-        <button onClick={() => onNavigate('PROFILE')} className="flex flex-col items-center gap-1 text-muted-foreground">
-          <span className="material-symbols-outlined text-2xl">person</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">Профиль</span>
-        </button>
-      </nav>
 
       {/* Source picker */}
       <AnimatePresence>
