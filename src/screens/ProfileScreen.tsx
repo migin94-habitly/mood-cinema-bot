@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Screen } from '@/types/movie';
+import { getTelegramWebApp } from '@/lib/telegram';
 
 interface Props {
   watchlistCount: number;
@@ -7,6 +8,17 @@ interface Props {
 }
 
 export const ProfileScreen: React.FC<Props> = ({ watchlistCount, onNavigate }) => {
+  const tgUser = useMemo(() => {
+    const tg = getTelegramWebApp();
+    return tg?.initDataUnsafe?.user ?? null;
+  }, []);
+
+  const displayName = tgUser
+    ? [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ')
+    : 'Киноман';
+  const username = tgUser?.username ? `@${tgUser.username}` : '@movie_mood_user';
+  const avatarUrl = tgUser?.photo_url || 'https://picsum.photos/seed/user/200/200';
+
   return (
     <div className="h-screen w-full flex flex-col bg-background">
       <header className="sticky top-0 z-50 glass border-b border-border px-6 py-4 flex items-center justify-between">
@@ -23,15 +35,15 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, onNavigate }) =
         <section className="flex flex-col items-center px-6 py-10">
           <div className="relative">
             <div className="size-28 rounded-full p-1 bg-gradient-to-tr from-primary to-purple-400">
-              <div className="size-full rounded-full border-4 border-background bg-cover bg-center" style={{ backgroundImage: `url('https://picsum.photos/seed/user/200/200')` }} />
+              <div className="size-full rounded-full border-4 border-background bg-cover bg-center" style={{ backgroundImage: `url('${avatarUrl}')` }} />
             </div>
             <div className="absolute bottom-1 right-1 bg-primary size-7 rounded-full border-2 border-background flex items-center justify-center">
               <span className="material-symbols-outlined text-[16px] text-primary-foreground">edit</span>
             </div>
           </div>
           <div className="mt-4 text-center">
-            <h2 className="text-2xl font-bold">Александр</h2>
-            <p className="text-primary font-medium">@alex_movie_mood</p>
+            <h2 className="text-2xl font-bold">{displayName}</h2>
+            <p className="text-primary font-medium">{username}</p>
           </div>
 
           <div className="grid grid-cols-3 gap-3 w-full mt-10">
