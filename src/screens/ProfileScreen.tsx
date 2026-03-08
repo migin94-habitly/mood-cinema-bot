@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import { Screen } from '@/types/movie';
-import { getTelegramWebApp } from '@/lib/telegram';
-import { motion } from 'framer-motion';
+import { getTelegramWebApp, haptic } from '@/lib/telegram';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   watchlistCount: number;
