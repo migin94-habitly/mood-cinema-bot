@@ -248,7 +248,7 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
 
   return (
     <div
-      className="h-screen w-full flex flex-col bg-background overflow-hidden"
+      className="relative h-screen w-full flex flex-col bg-background overflow-hidden"
       onTouchStart={showFilters ? undefined : handleTouchStart}
       onTouchMove={showFilters ? undefined : handleTouchMove}
       onTouchEnd={showFilters ? undefined : handleTouchEnd}
