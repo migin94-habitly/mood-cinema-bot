@@ -3,12 +3,16 @@ export type MoodType = 'Epic' | 'Romantic' | 'Scared' | 'Funny' | 'Mysterious' |
 export interface Movie {
   id: string;
   title: string;
+  titleOriginal: string;
   year: number;
   duration: string;
-  rating: number;
+  ratingImdb: number;
+  ratingKinopoisk: number;
   genres: string[];
   description: string;
   posterUrl: string;
+  platform: string;
+  type: 'movie' | 'series';
   actors: Actor[];
 }
 

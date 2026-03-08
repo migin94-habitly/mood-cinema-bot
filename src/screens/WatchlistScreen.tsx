@@ -42,7 +42,11 @@ export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate })
                   </div>
                 </div>
                 <h3 className="font-bold text-sm truncate px-1">{movie.title}</h3>
-                <p className="text-[10px] text-muted-foreground px-1 font-medium">{movie.genres[0]} • {movie.year}</p>
+                <div className="flex items-center gap-2 px-1">
+                  <span className="text-[9px] text-warning font-bold">IMDB {movie.ratingImdb}</span>
+                  <span className="text-[9px] text-primary font-bold">КП {movie.ratingKinopoisk}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground px-1 font-medium">{movie.platform} • {movie.year}</p>
                 <button className="mt-1 w-full py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-1">
                   <span className="material-symbols-outlined text-sm">play_arrow</span>
                   Смотреть
