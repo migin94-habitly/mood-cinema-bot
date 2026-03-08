@@ -39,7 +39,7 @@ export const MoodSelectionScreen: React.FC<Props> = ({ onSelectMood }) => {
               : 'bg-surface/40 border-primary/10 hover:border-primary/40'
             }`}
           >
-            <span className="text-4xl mb-1">{mood.emoji}</span>
+            <img src={mood.image} alt={mood.label} className="size-16 object-contain mb-1" draggable={false} />
             <span className="font-semibold text-sm">{mood.label}</span>
           </button>
         ))}
