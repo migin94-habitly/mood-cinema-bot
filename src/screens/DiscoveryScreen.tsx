@@ -1,8 +1,15 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
-import { Movie, Screen } from '@/types/movie';
+import { Movie, Screen, MoodType } from '@/types/movie';
 import { haptic } from '@/lib/telegram';
 import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
+import { MOODS } from '@/constants/moods';
+
+export interface DiscoveryFilters {
+  mood: MoodType;
+  type: 'all' | 'movie' | 'series';
+  genre: string | null;
+}
 
 interface Props {
   movies: Movie[];
@@ -12,10 +19,18 @@ interface Props {
   onDetails: (movie: Movie) => void;
   onNavigate: (screen: Screen) => void;
   onRefresh?: () => void;
+  onFiltersChange?: (filters: DiscoveryFilters) => void;
   isRefreshing?: boolean;
+  currentMood: MoodType;
 }
 
 const SWIPE_THRESHOLD = 120;
+
+const GENRES = [
+  'Боевик', 'Комедия', 'Драма', 'Фантастика', 'Триллер',
+  'Хоррор', 'Мелодрама', 'Детектив', 'Приключения', 'Анимация',
+  'Документальный', 'Фэнтези', 'Криминал', 'Биография',
+];
 
 const SwipeCard: React.FC<{
   movie: Movie;
@@ -59,7 +74,6 @@ const SwipeCard: React.FC<{
       <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-2xl bg-surface">
         <img src={movie.posterUrl} className="w-full h-full object-cover" alt={movie.title} />
         
-        {/* LIKE overlay */}
         <motion.div 
           className="absolute inset-0 bg-success/20 rounded-2xl flex items-center justify-center z-30 pointer-events-none"
           style={{ opacity: likeOpacity }}
@@ -69,7 +83,6 @@ const SwipeCard: React.FC<{
           </div>
         </motion.div>
 
-        {/* PASS overlay */}
         <motion.div 
           className="absolute inset-0 bg-destructive/20 rounded-2xl flex items-center justify-center z-30 pointer-events-none"
           style={{ opacity: passOpacity }}
@@ -128,42 +141,42 @@ const SwipeCard: React.FC<{
   );
 };
 
-type FilterType = 'all' | 'movie' | 'series';
-
-export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike, onPass, onDetails, onNavigate, onRefresh, isRefreshing }) => {
+export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike, onPass, onDetails, onNavigate, onRefresh, onFiltersChange, isRefreshing, currentMood }) => {
   const [showFilters, setShowFilters] = useState(false);
-  const [filterType, setFilterType] = useState<FilterType>('all');
-  const [filterPlatform, setFilterPlatform] = useState<string | null>(null);
+  const [filterMood, setFilterMood] = useState<MoodType>(currentMood);
+  const [filterType, setFilterType] = useState<'all' | 'movie' | 'series'>('all');
+  const [filterGenre, setFilterGenre] = useState<string | null>(null);
   const [localIndex, setLocalIndex] = useState(0);
+  const [pendingApply, setPendingApply] = useState(false);
 
-  // Get unique platforms from movies
-  const platforms = useMemo(() => {
-    const set = new Set(movies.map(m => m.platform).filter(Boolean));
-    return Array.from(set);
+  // Reset local index when movies change (new fetch)
+  const moviesKey = useRef(movies.map(m => m.id).join(','));
+  useEffect(() => {
+    const newKey = movies.map(m => m.id).join(',');
+    if (newKey !== moviesKey.current) {
+      moviesKey.current = newKey;
+      setLocalIndex(0);
+    }
   }, [movies]);
 
-  // Apply filters
-  const filteredMovies = useMemo(() => {
-    let result = movies;
-    if (filterType !== 'all') {
-      result = result.filter(m => m.type === filterType);
-    }
-    if (filterPlatform) {
-      result = result.filter(m => m.platform?.toLowerCase() === filterPlatform.toLowerCase());
-    }
-    return result;
-  }, [movies, filterType, filterPlatform]);
+  // Sync mood from parent
+  useEffect(() => {
+    setFilterMood(currentMood);
+  }, [currentMood]);
 
-  // Reset local index when filters change
-  const prevFilterKey = useRef(`${filterType}-${filterPlatform}`);
-  const filterKey = `${filterType}-${filterPlatform}`;
-  if (filterKey !== prevFilterKey.current) {
-    prevFilterKey.current = filterKey;
+  const handleApplyFilters = () => {
+    if (onFiltersChange) {
+      onFiltersChange({ mood: filterMood, type: filterType, genre: filterGenre });
+    }
+    setShowFilters(false);
     setLocalIndex(0);
-  }
+  };
 
-  const currentMovie = filteredMovies[localIndex];
-  const nextMovie = filteredMovies[localIndex + 1];
+  // Check if filters changed vs what's currently loaded
+  const filtersChanged = filterMood !== currentMood || filterType !== 'all' || filterGenre !== null;
+
+  const currentMovie = movies[localIndex];
+  const nextMovie = movies[localIndex + 1];
 
   const handleLocalLike = (movie: Movie) => {
     onLike(movie);
@@ -202,6 +215,8 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
     setIsPulling(false);
   }, [pullY, onRefresh, isRefreshing]);
 
+  const activeMoodItem = MOODS.find(m => m.id === filterMood);
+
   if (!currentMovie) {
     return (
       <motion.div 
@@ -211,25 +226,20 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
       >
         <span className="material-symbols-outlined text-primary text-6xl mb-4">sentiment_very_satisfied</span>
         <h2 className="text-2xl font-bold mb-2">Вы просмотрели всё!</h2>
-        <p className="text-muted-foreground mb-8">
-          {filterType !== 'all' || filterPlatform 
-            ? 'Попробуйте сбросить фильтры или выбрать другое настроение.' 
-            : 'Попробуйте другое настроение для новых находок.'}
-        </p>
+        <p className="text-muted-foreground mb-8">Попробуйте изменить фильтры или обновить рекомендации.</p>
         <div className="flex gap-3">
-          {(filterType !== 'all' || filterPlatform) && (
-            <button 
-              onClick={() => { setFilterType('all'); setFilterPlatform(null); setLocalIndex(0); }}
-              className="bg-muted px-6 py-3 rounded-xl font-bold text-foreground border border-border"
-            >
-              Сбросить фильтры
-            </button>
-          )}
           <button 
-            onClick={() => onNavigate('MOOD_GRID')}
+            onClick={() => setShowFilters(true)}
+            className="bg-muted px-6 py-3 rounded-xl font-bold text-foreground border border-border flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-lg">tune</span>
+            Фильтры
+          </button>
+          <button 
+            onClick={() => { if (onRefresh) { onRefresh(); setLocalIndex(0); } }}
             className="bg-primary px-8 py-3 rounded-xl font-bold text-primary-foreground shadow-lg shadow-primary/20"
           >
-            Выбрать настроение
+            Обновить
           </button>
         </div>
       </motion.div>
@@ -271,13 +281,13 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
         <div className="text-center">
           <h1 className="text-lg font-bold">Movie Mood</h1>
           <div className="flex items-center justify-center gap-1">
-            <span className="size-1.5 rounded-full bg-primary animate-pulse"></span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Подбор</span>
+            <span className="text-sm">{activeMoodItem?.emoji}</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">{activeMoodItem?.label}</span>
           </div>
         </div>
         <button 
           onClick={() => setShowFilters(!showFilters)} 
-          className={`size-10 rounded-full glass flex items-center justify-center ${showFilters ? 'ring-2 ring-primary' : ''}`}
+          className={`size-10 rounded-full glass flex items-center justify-center transition-all ${showFilters ? 'ring-2 ring-primary' : ''}`}
         >
           <span className="material-symbols-outlined text-muted-foreground">tune</span>
         </button>
@@ -290,48 +300,89 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden px-6"
+            className="overflow-hidden"
           >
-            <div className="pb-4 space-y-3">
+            <div className="px-6 pb-4 space-y-4">
+              {/* Mood filter */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Настроение</p>
+                <div className="flex gap-2 flex-wrap">
+                  {MOODS.map(mood => (
+                    <button
+                      key={mood.id}
+                      onClick={() => setFilterMood(mood.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                        filterMood === mood.id 
+                          ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' 
+                          : 'bg-muted text-muted-foreground border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <span>{mood.emoji}</span>
+                      <span>{mood.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Type filter */}
-              <div className="flex gap-2">
-                {([['all', 'Все'], ['movie', 'Фильмы'], ['series', 'Сериалы']] as const).map(([val, label]) => (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Категория</p>
+                <div className="flex gap-2">
+                  {([['all', 'Все', 'apps'], ['movie', 'Фильмы', 'movie'], ['series', 'Сериалы', 'tv']] as const).map(([val, label, icon]) => (
+                    <button
+                      key={val}
+                      onClick={() => setFilterType(val)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
+                        filterType === val 
+                          ? 'bg-primary text-primary-foreground border-primary' 
+                          : 'bg-muted text-muted-foreground border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">{icon}</span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Genre filter */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Жанр</p>
+                <div className="flex gap-2 flex-wrap max-h-24 overflow-y-auto hide-scrollbar">
                   <button
-                    key={val}
-                    onClick={() => setFilterType(val)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all ${
-                      filterType === val 
+                    onClick={() => setFilterGenre(null)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                      !filterGenre 
                         ? 'bg-primary text-primary-foreground border-primary' 
-                        : 'bg-muted text-muted-foreground border-border hover:border-primary/30'
+                        : 'bg-muted text-muted-foreground border-border'
                     }`}
                   >
-                    {label}
+                    Любой
                   </button>
-                ))}
+                  {GENRES.map(g => (
+                    <button
+                      key={g}
+                      onClick={() => setFilterGenre(filterGenre === g ? null : g)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                        filterGenre === g 
+                          ? 'bg-primary text-primary-foreground border-primary' 
+                          : 'bg-muted text-muted-foreground border-border'
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {/* Platform filter */}
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => setFilterPlatform(null)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                    !filterPlatform 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-muted text-muted-foreground border-border'
-                  }`}
-                >
-                  Все платформы
-                </button>
-                {platforms.map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setFilterPlatform(filterPlatform === p ? null : p)}
-                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all"
-                    style={filterPlatform === p ? { ...getPlatformStyle(p), fontWeight: 800 } : { ...getPlatformStyle(p), opacity: 0.6 }}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
+
+              {/* Apply button */}
+              <button
+                onClick={handleApplyFilters}
+                className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              >
+                <span className="material-symbols-outlined text-lg">auto_awesome</span>
+                Применить и найти
+              </button>
             </div>
           </motion.div>
         )}
