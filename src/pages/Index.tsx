@@ -28,6 +28,7 @@ const Index: React.FC = () => {
     currentMovieIndex: 0,
     selectedMovie: null,
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const screenRef = useRef(state.currentScreen);
   screenRef.current = state.currentScreen;
@@ -99,7 +100,15 @@ const Index: React.FC = () => {
       currentMovieIndex: 0,
       currentScreen: 'DISCOVERY'
     }));
+    setIsRefreshing(false);
   }, []);
+
+  const handleRefresh = useCallback(() => {
+    if (state.selectedMood && !isRefreshing) {
+      setIsRefreshing(true);
+      fetchMovies(state.selectedMood);
+    }
+  }, [state.selectedMood, isRefreshing, fetchMovies]);
 
   useEffect(() => {
     if (state.currentScreen === 'AI_PROCESSING' && state.selectedMood) {
@@ -160,6 +169,8 @@ const Index: React.FC = () => {
             onPass={handlePass}
             onDetails={openDetails}
             onNavigate={navigateTo}
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
           />
         );
       case 'WATCHLIST':
