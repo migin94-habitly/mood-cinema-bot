@@ -389,22 +389,34 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
       </AnimatePresence>
 
       <main className="flex-1 relative px-4 py-2 flex items-center justify-center">
-        <div className="relative w-full max-w-[400px] aspect-[2/3]">
-          {nextMovie && (
-            <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-xl bg-surface scale-[0.92] opacity-50">
-              <img src={nextMovie.posterUrl} className="w-full h-full object-cover" alt={nextMovie.title} />
-            </div>
-          )}
-          <AnimatePresence mode="popLayout">
-            <SwipeCard
-              key={currentMovie.id}
-              movie={currentMovie}
-              onLike={() => handleLocalLike(currentMovie)}
-              onPass={handleLocalPass}
-              onDetails={() => onDetails(currentMovie)}
-            />
-          </AnimatePresence>
-        </div>
+        {isRefreshing ? (
+          <div className="flex flex-col items-center gap-4">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+            >
+              <span className="material-symbols-outlined text-primary text-4xl">progress_activity</span>
+            </motion.div>
+            <p className="text-sm text-muted-foreground font-medium">AI подбирает фильмы...</p>
+          </div>
+        ) : (
+          <div className="relative w-full max-w-[400px] aspect-[2/3]">
+            {nextMovie && (
+              <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-xl bg-surface scale-[0.92] opacity-50">
+                <img src={nextMovie.posterUrl} className="w-full h-full object-cover" alt={nextMovie.title} />
+              </div>
+            )}
+            <AnimatePresence mode="popLayout">
+              <SwipeCard
+                key={currentMovie.id}
+                movie={currentMovie}
+                onLike={() => handleLocalLike(currentMovie)}
+                onPass={handleLocalPass}
+                onDetails={() => onDetails(currentMovie)}
+              />
+            </AnimatePresence>
+          </div>
+        )}
       </main>
 
       <div className="px-6 py-8 flex items-center justify-center gap-10">
