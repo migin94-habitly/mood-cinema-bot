@@ -70,7 +70,7 @@ export const AIProcessingScreen: React.FC<Props> = ({ mood }) => {
       <motion.img 
         src={logo} 
         alt="Movie Mood" 
-        className="size-14 mb-4"
+        className="size-24 mb-4"
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: 'spring', duration: 0.8 }}

@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import logo from '@/assets/logo.png';
 
 interface Props {
   onStart: () => void;
@@ -10,11 +12,14 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart }) => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_hsla(272,90%,55%,0.15),_transparent_60%)]" />
       
       <div className="relative z-10 flex flex-col items-center text-center mt-20">
-        <div className="bg-primary/20 border border-primary/30 px-4 py-2 rounded-full mb-6 flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-sm">auto_awesome</span>
-          <span className="text-xs font-semibold tracking-wider uppercase text-primary/80">AI Powered</span>
-        </div>
-        <h1 className="text-sm font-bold tracking-[0.2em] uppercase text-primary/80 mb-8">Movie Mood</h1>
+        <motion.img 
+          src={logo} 
+          alt="Movie Mood" 
+          className="size-24 mb-6"
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 15, duration: 0.8 }}
+        />
         <h2 className="text-4xl font-bold leading-tight mb-4">
           Найди <span className="text-primary">Идеальный</span> Фильм
         </h2>
