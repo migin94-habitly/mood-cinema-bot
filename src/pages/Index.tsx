@@ -9,7 +9,7 @@ import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
 import { getMovieRecommendations, getRecentlyRecommended, saveRecommendationHistory } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
-import { usePersistence } from '@/hooks/usePersistence';
+import { usePersistence, getUserId } from '@/hooks/usePersistence';
 
 const BACK_MAP: Partial<Record<Screen, Screen>> = {
   MOOD_GRID: 'WELCOME',
@@ -87,7 +87,12 @@ const Index: React.FC = () => {
   };
 
   const fetchMovies = useCallback(async (mood: MoodType, type?: string, genre?: string | null) => {
-    const movies = await getMovieRecommendations(mood, type, genre);
+    const userId = getUserId();
+    const excludeTitles = await getRecentlyRecommended(userId);
+    const movies = await getMovieRecommendations(mood, type, genre, excludeTitles);
+    if (movies.length > 0) {
+      await saveRecommendationHistory(userId, movies);
+    }
     haptic.success();
     setState(prev => ({
       ...prev,
