@@ -42,7 +42,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { mood, type, genre } = await req.json();
+    const { mood, type, genre, excludeTitles } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
     const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
@@ -56,6 +56,11 @@ serve(async (req) => {
 
     let genreConstraint = "";
     if (genre) genreConstraint = `\nОБЯЗАТЕЛЬНЫЙ ЖАНР: Все рекомендации ДОЛЖНЫ относиться к жанру "${genre}". Это главный приоритет при подборе.`;
+
+    let excludeConstraint = "";
+    if (excludeTitles?.length > 0) {
+      excludeConstraint = `\n\nЗАПРЕЩЁННЫЕ ФИЛЬМЫ (НЕ РЕКОМЕНДУЙ ИХ, они уже были показаны пользователю):\n${excludeTitles.join(", ")}\n\nЭто СТРОГОЕ ограничение — ни один из перечисленных фильмов/сериалов не должен появиться в рекомендациях.`;
+    }
 
     const prompt = `Ты — эксперт по кино и сериалам с энциклопедическими знаниями.
 
@@ -85,7 +90,7 @@ serve(async (req) => {
 posterUrl: https://picsum.photos/seed/{titleOriginal_no_spaces}/400/600
 imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/100
 
-НЕ повторяй очевидные фильмы. Включай жемчужины.`;
+НЕ повторяй очевидные фильмы. Включай жемчужины.${excludeConstraint}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

@@ -10,7 +10,7 @@ function getTelegramUserId(): string | null {
 }
 
 // Fallback for non-Telegram environment (preview/dev)
-function getUserId(): string {
+export function getUserId(): string {
   const tgId = getTelegramUserId();
   if (tgId) return tgId;
   let devId = localStorage.getItem('dev_user_id');
