@@ -68,23 +68,18 @@ export function usePersistence(onDataLoaded: (data: PersistenceData) => void) {
   const addToWatchlist = useCallback(async (movie: Movie) => {
     const uid = userId.current;
     await supabase.from('watchlist_items').upsert(
-      { telegram_user_id: uid, movie_data: movie as any },
-      { onConflict: 'telegram_user_id,movie_data->>id' }
-    ).then(() => {}); // ignore duplicate errors
+      { telegram_user_id: uid, movie_id: movie.id, movie_data: movie as any },
+      { onConflict: 'telegram_user_id,movie_id' }
+    );
   }, []);
 
   const removeFromWatchlist = useCallback(async (movieId: string) => {
     const uid = userId.current;
-    // We need to delete by telegram_user_id and movie id inside jsonb
-    const { data } = await supabase
+    await supabase
       .from('watchlist_items')
-      .select('id, movie_data')
-      .eq('telegram_user_id', uid);
-    
-    const toDelete = data?.find((r: any) => (r.movie_data as any)?.id === movieId);
-    if (toDelete) {
-      await supabase.from('watchlist_items').delete().eq('id', toDelete.id);
-    }
+      .delete()
+      .eq('telegram_user_id', uid)
+      .eq('movie_id', movieId);
   }, []);
 
   return { saveStats, addToWatchlist, removeFromWatchlist };
