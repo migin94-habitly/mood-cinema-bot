@@ -192,7 +192,7 @@ const Index: React.FC = () => {
           />
         );
       case 'WATCHLIST':
-        return <WatchlistScreen movies={state.watchlist} onBack={() => navigateTo('DISCOVERY')} onNavigate={navigateTo} />;
+        return <WatchlistScreen movies={state.watchlist} onBack={() => navigateTo('DISCOVERY')} onNavigate={navigateTo} onRemove={(movie) => handleToggleWatchlist(movie)} />;
       case 'PROFILE':
         return <ProfileScreen watchlistCount={state.watchlist.length} swipeCount={swipeCount} watchedCount={watchedCount} onNavigate={navigateTo} />;
       case 'DETAILS':
