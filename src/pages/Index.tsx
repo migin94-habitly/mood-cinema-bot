@@ -7,7 +7,7 @@ import { DiscoveryScreen, DiscoveryFilters } from '@/screens/DiscoveryScreen';
 import { WatchlistScreen } from '@/screens/WatchlistScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
-import { getMovieRecommendations } from '@/services/movieService';
+import { getMovieRecommendations, getRecentlyRecommended, saveRecommendationHistory } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { usePersistence } from '@/hooks/usePersistence';
 
