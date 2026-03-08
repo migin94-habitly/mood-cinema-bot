@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
 import { Movie, Screen } from '@/types/movie';
+import { haptic } from '@/lib/telegram';
 
 interface Props {
   movies: Movie[];
