@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Screen, MoodType, Movie, AppState } from '@/types/movie';
 import { WelcomeScreen } from '@/screens/WelcomeScreen';
 import { MoodSelectionScreen } from '@/screens/MoodSelectionScreen';
@@ -8,6 +8,16 @@ import { WatchlistScreen } from '@/screens/WatchlistScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
 import { getMovieRecommendations } from '@/services/movieService';
+import { getTelegramWebApp, haptic } from '@/lib/telegram';
+
+const BACK_MAP: Partial<Record<Screen, Screen>> = {
+  MOOD_GRID: 'WELCOME',
+  AI_PROCESSING: 'MOOD_GRID',
+  DISCOVERY: 'MOOD_GRID',
+  WATCHLIST: 'DISCOVERY',
+  PROFILE: 'DISCOVERY',
+  DETAILS: 'DISCOVERY',
+};
 
 const Index: React.FC = () => {
   const [state, setState] = useState<AppState>({
@@ -19,16 +29,70 @@ const Index: React.FC = () => {
     selectedMovie: null,
   });
 
+  const screenRef = useRef(state.currentScreen);
+  screenRef.current = state.currentScreen;
+
+  // ── Telegram WebApp init ──
+  useEffect(() => {
+    const tg = getTelegramWebApp();
+    if (!tg) return;
+
+    tg.ready();
+    tg.expand();
+
+    // Apply Telegram theme colors to CSS variables
+    const tp = tg.themeParams;
+    const root = document.documentElement;
+
+    if (tp.bg_color) {
+      root.style.setProperty('--tg-bg', tp.bg_color);
+    }
+    if (tp.header_bg_color) {
+      tg.setHeaderColor(tp.header_bg_color);
+    }
+    if (tp.bg_color) {
+      tg.setBackgroundColor(tp.bg_color);
+    }
+  }, []);
+
+  // ── Telegram BackButton ──
+  useEffect(() => {
+    const tg = getTelegramWebApp();
+    if (!tg) return;
+
+    const handleBack = () => {
+      const backTo = BACK_MAP[screenRef.current];
+      if (backTo) {
+        haptic.light();
+        setState(prev => ({ ...prev, currentScreen: backTo }));
+      }
+    };
+
+    if (state.currentScreen === 'WELCOME') {
+      tg.BackButton.hide();
+    } else {
+      tg.BackButton.show();
+    }
+
+    tg.BackButton.onClick(handleBack);
+    return () => {
+      tg.BackButton.offClick(handleBack);
+    };
+  }, [state.currentScreen]);
+
   const navigateTo = (screen: Screen) => {
+    haptic.light();
     setState(prev => ({ ...prev, currentScreen: screen }));
   };
 
   const handleMoodSelect = (mood: MoodType) => {
+    haptic.medium();
     setState(prev => ({ ...prev, selectedMood: mood, currentScreen: 'AI_PROCESSING' }));
   };
 
   const fetchMovies = useCallback(async (mood: MoodType) => {
     const movies = await getMovieRecommendations(mood);
+    haptic.success();
     setState(prev => ({
       ...prev,
       movies: movies.length > 0 ? movies : [],
@@ -44,6 +108,7 @@ const Index: React.FC = () => {
   }, [state.currentScreen, state.selectedMood, fetchMovies]);
 
   const handleLike = (movie: Movie) => {
+    haptic.success();
     const isAlreadyIn = state.watchlist.some(m => m.id === movie.id);
     setState(prev => ({
       ...prev,
@@ -53,6 +118,7 @@ const Index: React.FC = () => {
   };
 
   const handlePass = () => {
+    haptic.light();
     setState(prev => ({
       ...prev,
       currentMovieIndex: prev.currentMovieIndex + 1
@@ -60,6 +126,7 @@ const Index: React.FC = () => {
   };
 
   const handleToggleWatchlist = (movie: Movie) => {
+    haptic.medium();
     setState(prev => {
       const isAdded = prev.watchlist.some(m => m.id === movie.id);
       return {
@@ -72,6 +139,7 @@ const Index: React.FC = () => {
   };
 
   const openDetails = (movie: Movie) => {
+    haptic.selection();
     setState(prev => ({ ...prev, selectedMovie: movie, currentScreen: 'DETAILS' }));
   };
 
