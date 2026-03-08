@@ -9,6 +9,7 @@ import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
 import { getMovieRecommendations } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
+import { usePersistence } from '@/hooks/usePersistence';
 
 const BACK_MAP: Partial<Record<Screen, Screen>> = {
   MOOD_GRID: 'WELCOME',
@@ -32,6 +33,16 @@ const Index: React.FC = () => {
   const [swipeCount, setSwipeCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
   const [activeFilters, setActiveFilters] = useState<{ type?: string; genre?: string | null }>({});
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  const handleDataLoaded = useCallback((data: { watchlist: Movie[]; swipeCount: number; watchedCount: number }) => {
+    setState(prev => ({ ...prev, watchlist: data.watchlist }));
+    setSwipeCount(data.swipeCount);
+    setWatchedCount(data.watchedCount);
+    setDataLoaded(true);
+  }, []);
+
+  const { saveStats, addToWatchlist, removeFromWatchlist } = usePersistence(handleDataLoaded);
 
   const screenRef = useRef(state.currentScreen);
   screenRef.current = state.currentScreen;
@@ -109,29 +120,40 @@ const Index: React.FC = () => {
 
   const handleLike = (movie: Movie) => {
     haptic.success();
-    setSwipeCount(c => c + 1);
-    setWatchedCount(c => c + 1);
+    const newSwipe = swipeCount + 1;
+    const newWatched = watchedCount + 1;
+    setSwipeCount(newSwipe);
+    setWatchedCount(newWatched);
     const isAlreadyIn = state.watchlist.some(m => m.id === movie.id);
     setState(prev => ({
       ...prev,
       watchlist: isAlreadyIn ? prev.watchlist : [...prev.watchlist, movie],
       currentMovieIndex: prev.currentMovieIndex + 1
     }));
+    if (!isAlreadyIn) addToWatchlist(movie);
+    saveStats(newSwipe, newWatched);
   };
 
   const handlePass = () => {
     haptic.light();
-    setSwipeCount(c => c + 1);
+    const newSwipe = swipeCount + 1;
+    setSwipeCount(newSwipe);
     setState(prev => ({
       ...prev,
       currentMovieIndex: prev.currentMovieIndex + 1
     }));
+    saveStats(newSwipe, watchedCount);
   };
 
   const handleToggleWatchlist = (movie: Movie) => {
     haptic.medium();
     setState(prev => {
       const isAdded = prev.watchlist.some(m => m.id === movie.id);
+      if (isAdded) {
+        removeFromWatchlist(movie.id);
+      } else {
+        addToWatchlist(movie);
+      }
       return {
         ...prev,
         watchlist: isAdded
