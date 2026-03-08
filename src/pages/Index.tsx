@@ -12,6 +12,7 @@ import { DiscoverySkeleton } from '@/components/Skeletons';
 import { getMovieRecommendations, getRecentlyRecommended, saveRecommendationHistory } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { usePersistence, getUserId } from '@/hooks/usePersistence';
+import { trackEvent } from '@/services/analyticsService';
 
 const BACK_MAP: Partial<Record<Screen, Screen>> = {
   MOOD_GRID: 'WELCOME',
@@ -50,6 +51,7 @@ const Index: React.FC = () => {
   screenRef.current = state.currentScreen;
 
   useEffect(() => {
+    trackEvent('session_start');
     const tg = getTelegramWebApp();
     if (!tg) return;
     tg.ready();
@@ -84,6 +86,7 @@ const Index: React.FC = () => {
 
   const handleMoodSelect = (mood: MoodType) => {
     haptic.medium();
+    trackEvent('mood_select', { mood });
     setActiveFilters({});
     setState(prev => ({ ...prev, selectedMood: mood, currentScreen: 'AI_PROCESSING' }));
   };
@@ -127,6 +130,7 @@ const Index: React.FC = () => {
 
   const handleLike = (movie: Movie) => {
     haptic.success();
+    trackEvent('swipe_like', { movieId: movie.id, title: movie.title });
     const newSwipe = swipeCount + 1;
     const newWatched = watchedCount + 1;
     setSwipeCount(newSwipe);
@@ -143,6 +147,7 @@ const Index: React.FC = () => {
 
   const handlePass = () => {
     haptic.light();
+    trackEvent('swipe_pass');
     const newSwipe = swipeCount + 1;
     setSwipeCount(newSwipe);
     setState(prev => ({
@@ -157,8 +162,10 @@ const Index: React.FC = () => {
     setState(prev => {
       const isAdded = prev.watchlist.some(m => m.id === movie.id);
       if (isAdded) {
+        trackEvent('watchlist_remove', { movieId: movie.id, title: movie.title });
         removeFromWatchlist(movie.id);
       } else {
+        trackEvent('watchlist_add', { movieId: movie.id, title: movie.title });
         addToWatchlist(movie);
       }
       return {
