@@ -38,6 +38,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cinema_movies: {
+        Row: {
+          age_rating: string | null
+          id: string
+          image_url: string | null
+          scraped_at: string
+          title: string
+          url: string
+        }
+        Insert: {
+          age_rating?: string | null
+          id?: string
+          image_url?: string | null
+          scraped_at?: string
+          title: string
+          url: string
+        }
+        Update: {
+          age_rating?: string | null
+          id?: string
+          image_url?: string | null
+          scraped_at?: string
+          title?: string
+          url?: string
+        }
+        Relationships: []
+      }
       recommendation_history: {
         Row: {
           id: string

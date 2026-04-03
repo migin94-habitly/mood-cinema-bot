@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,32 @@ const MOOD_CONTEXT: Record<string, string> = {
   Mysterious: "детективы, криминальные триллеры, загадочные истории",
   Relaxed: "лёгкие фильмы и сериалы для расслабленного просмотра, документалки о природе, feel-good кино",
 };
+
+interface CinemaMovie {
+  title: string;
+  url: string;
+  image_url: string;
+  age_rating: string;
+}
+
+async function getCinemaMoviesFromDB(): Promise<CinemaMovie[]> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
+  const { data, error } = await supabase
+    .from("cinema_movies")
+    .select("title, url, image_url, age_rating")
+    .order("scraped_at", { ascending: false });
+  
+  if (error) {
+    console.error("Failed to fetch cinema movies from DB:", error);
+    return [];
+  }
+  
+  console.log(`DB: loaded ${data?.length || 0} cinema movies`);
+  return data || [];
+}
 
 async function searchTmdbPoster(title: string, year: number, apiKey: string): Promise<string | null> {
   try {
@@ -38,83 +65,6 @@ async function searchTmdbPerson(name: string, apiKey: string): Promise<string | 
   } catch { return null; }
 }
 
-interface CinemaMovie {
-  title: string;
-  url: string;
-  imageUrl: string;
-  ageRating: string;
-  date: string;
-  price: string;
-}
-
-async function scrapeTicketonCinema(): Promise<CinemaMovie[]> {
-  try {
-    const res = await fetch("https://ticketon.kz/almaty/cinema");
-    if (!res.ok) return [];
-    const html = await res.text();
-    
-    const movies: CinemaMovie[] = [];
-    // Parse movie entries from HTML - look for event links with movie data
-    const eventRegex = /href="(https:\/\/ticketon\.kz\/almaty\/event\/[^"]+)"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"[\s\S]*?(\d+\+)[\s\S]*?<[^>]*>([^<]+)<[\s\S]*?(\d+ \w+, \d+:\d+)/g;
-    
-    // Simpler approach: extract structured data using regex on the full HTML
-    const blockRegex = /<a[^>]*href="(https:\/\/ticketon\.kz\/almaty\/event\/[^"]+)"[^>]*class="[^"]*event-card[^"]*"[\s\S]*?<\/a>/g;
-    
-    // Fallback: parse from text content patterns
-    const titleUrlPairs: { title: string; url: string }[] = [];
-    const linkRegex = /href="(https:\/\/ticketon\.kz\/almaty\/event\/([^"]+))"[^>]*>/g;
-    let match;
-    const seenUrls = new Set<string>();
-    
-    while ((match = linkRegex.exec(html)) !== null) {
-      const url = match[1];
-      if (seenUrls.has(url)) continue;
-      seenUrls.add(url);
-      
-      // Extract title from the slug
-      const slug = match[2];
-      // Convert slug to readable title: "tvoe-serdtse-budet-razbito-2026" -> "Твое сердце будет разбито"
-      const cleanSlug = slug.replace(/-\d{4}$/, '').replace(/-/g, ' ');
-      titleUrlPairs.push({ title: cleanSlug, url });
-    }
-    
-    // Also try to extract actual titles from the HTML
-    const titleRegex = /<(?:h\d|strong|b|span)[^>]*class="[^"]*(?:title|name)[^"]*"[^>]*>([^<]+)</g;
-    
-    // Use a more reliable approach - look for known movie title patterns in markdown-like content
-    const strongRegex = /<strong[^>]*>([^<]+)<\/strong>/g;
-    const titles: string[] = [];
-    while ((match = strongRegex.exec(html)) !== null) {
-      const t = match[1].trim();
-      if (t.length > 2 && !t.includes('₸') && !t.includes('Freedom')) {
-        titles.push(t);
-      }
-    }
-    
-    // Match titles with URLs
-    for (let i = 0; i < Math.min(titleUrlPairs.length, 25); i++) {
-      const pair = titleUrlPairs[i];
-      // Skip non-movie events (sports, festivals)
-      if (pair.url.includes('-vs-') || pair.url.includes('festival') || pair.url.includes('concert')) continue;
-      
-      const movieTitle = titles[i] || pair.title;
-      movies.push({
-        title: movieTitle.replace(/\s*\(\d{4}\)\s*$/, ''),
-        url: pair.url,
-        imageUrl: '',
-        ageRating: '',
-        date: '',
-        price: '',
-      });
-    }
-    
-    return movies.slice(0, 15);
-  } catch (e) {
-    console.error("Failed to scrape ticketon:", e);
-    return [];
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -126,29 +76,35 @@ serve(async (req) => {
 
     const moodContext = MOOD_CONTEXT[mood] || mood;
 
-    // Scrape cinema movies in parallel with AI call
-    const cinemaPromise = scrapeTicketonCinema();
+    // Load cinema movies from database
+    const cinemaMovies = await getCinemaMoviesFromDB();
 
     let typeConstraint = "Микс фильмов и сериалов (примерно 7 фильмов + 5 сериалов)";
-    if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все 10 результатов должны быть фильмами (type: 'movie').";
-    else if (type === "series") typeConstraint = "ТОЛЬКО СЕРИАЛЫ, никаких фильмов. Все 10 результатов должны быть сериалами (type: 'series').";
+    if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все результаты должны быть фильмами (type: 'movie').";
+    else if (type === "series") typeConstraint = "ТОЛЬКО СЕРИАЛЫ, никаких фильмов. Все результаты должны быть сериалами (type: 'series').";
 
     let genreConstraint = "";
-    if (genre) genreConstraint = `\nОБЯЗАТЕЛЬНЫЙ ЖАНР: Все рекомендации ДОЛЖНЫ относиться к жанру "${genre}". Это главный приоритет при подборе.`;
+    if (genre) genreConstraint = `\nОБЯЗАТЕЛЬНЫЙ ЖАНР: Все рекомендации ДОЛЖНЫ относиться к жанру "${genre}".`;
 
     let excludeConstraint = "";
     if (excludeTitles?.length > 0) {
       excludeConstraint = `\n\nЗАПРЕЩЁННЫЕ ФИЛЬМЫ (НЕ РЕКОМЕНДУЙ ИХ):\n${excludeTitles.join(", ")}`;
     }
 
-    // Get cinema movies
-    const cinemaMovies = await cinemaPromise;
     let cinemaContext = "";
-    if (cinemaMovies.length > 0) {
-      cinemaContext = `\n\nСЕЙЧАС В КИНОТЕАТРАХ АЛМАТЫ (ticketon.kz):\n${cinemaMovies.map(m => `- "${m.title}" (${m.url})`).join('\n')}\n\nЕсли какие-то из этих фильмов подходят под настроение "${mood}" (${moodContext}), ОБЯЗАТЕЛЬНО включи их в рекомендации (максимум 3-4 фильма из кинотеатров). Для таких фильмов установи platform: "Кинотеатр" и добавь поле ticketonUrl с соответствующей ссылкой из списка выше.`;
+    if (cinemaMovies.length > 0 && type !== "series") {
+      const cinemaList = cinemaMovies.map(m =>
+        `- "${m.title}" (возраст: ${m.age_rating || '?'}, ссылка: ${m.url})`
+      ).join('\n');
+
+      cinemaContext = `\n\n🎬 СЕЙЧАС В КИНОТЕАТРАХ АЛМАТЫ (${cinemaMovies.length} фильмов):\n${cinemaList}\n
+ВАЖНЕЙШЕЕ ПРАВИЛО: Включи ВСЕ фильмы из кинотеатров, которые подходят под настроение "${mood}" (${moodContext}).
+Для каждого: platform = "Кинотеатр", ticketonUrl = ссылка из списка.
+Фильмы из кинотеатров ДОЛЖНЫ идти ПЕРВЫМИ в массиве movies.
+После них добавь рекомендации из стриминговых сервисов до общего 12.`;
     }
 
-    const prompt = `Ты — эксперт по кино и сериалам с энциклопедическими знаниями.
+    const prompt = `Ты — эксперт по кино и сериалам.
 
 ЗАДАЧА: Подбери 12 РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}".
 Контекст: ${moodContext}
@@ -161,24 +117,18 @@ ${cinemaContext}
 1. ТОЛЬКО РЕАЛЬНО СУЩЕСТВУЮЩИЕ фильмы/сериалы
 2. Приоритет: 2022-2026, можно 1-2 классики
 3. Рейтинги РЕАЛЬНЫЕ (IMDB и Кинопоиск)
-4. Указывай РЕАЛЬНУЮ платформу
+4. Фильмы из кинотеатров (если есть) ПЕРВЫМИ
 
 ПЛАТФОРМЫ: Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+, HDRezka, Кинопоиск HD, Okko, IVI, Wink, Hulu, Paramount+, Кинотеатр
 
 ДЛЯ КАЖДОГО:
-- title: русское название
-- titleOriginal: английское название
-- year, duration, ratingImdb (1-10), ratingKinopoisk (1-10)
-- genres: жанры на русском
-- description: 2-3 предложения на русском
-- platform, type ("movie"/"series")
-- actors: 2-3 актёра
-- ticketonUrl: ссылка на ticketon.kz ТОЛЬКО если фильм сейчас в кинотеатрах Алматы (из списка выше), иначе null
+- title, titleOriginal, year, duration, ratingImdb (1-10), ratingKinopoisk (1-10)
+- genres (русский), description (2-3 предложения), platform, type ("movie"/"series")
+- actors: 2-3 актёра (name, imageUrl)
+- ticketonUrl: ссылка ТОЛЬКО если из списка кинотеатров, иначе null
 
 posterUrl: https://picsum.photos/seed/{titleOriginal_no_spaces}/400/600
-imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/100
-
-НЕ повторяй очевидные фильмы. Включай жемчужины.${excludeConstraint}`;
+imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/100${excludeConstraint}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -189,14 +139,14 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "Ты — кинокритик и куратор. Рекомендуешь только реально существующие фильмы с реальными рейтингами." },
+          { role: "system", content: "Ты — кинокритик. Рекомендуешь только реальные фильмы с реальными рейтингами." },
           { role: "user", content: prompt }
         ],
         tools: [{
           type: "function",
           function: {
             name: "recommend_movies",
-            description: "Return 12 real movie/series recommendations",
+            description: "Return 12 real movie/series recommendations. Cinema movies MUST come first.",
             parameters: {
               type: "object",
               properties: {
@@ -225,7 +175,7 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
                           required: ["name", "imageUrl"]
                         }
                       },
-                      ticketonUrl: { type: "string", description: "URL to ticketon.kz event page, null if not in cinemas" }
+                      ticketonUrl: { type: "string" }
                     },
                     required: ["id", "title", "titleOriginal", "year", "duration", "ratingImdb", "ratingKinopoisk", "genres", "description", "posterUrl", "platform", "type", "actors"]
                   }
@@ -260,13 +210,23 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
       }
     }
 
-    // Clean up ticketonUrl - ensure only valid ticketon URLs
-    movies = movies.map((m: any) => {
+    // Enforce prioritization: cinema first, then streaming
+    const cinemaResults: any[] = [];
+    const streamingResults: any[] = [];
+
+    for (const m of movies) {
       if (m.ticketonUrl && !m.ticketonUrl.startsWith('https://ticketon.kz/')) {
         m.ticketonUrl = null;
       }
-      return m;
-    });
+      if (m.ticketonUrl || m.platform === 'Кинотеатр') {
+        cinemaResults.push(m);
+      } else {
+        streamingResults.push(m);
+      }
+    }
+
+    movies = [...cinemaResults, ...streamingResults];
+    console.log(`Results: ${cinemaResults.length} cinema + ${streamingResults.length} streaming = ${movies.length} total (DB had ${cinemaMovies.length} movies)`);
 
     // Enrich with TMDB
     if (TMDB_API_KEY && movies.length > 0) {
@@ -284,7 +244,15 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
       }));
     }
 
-    return new Response(JSON.stringify({ movies }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({
+      movies,
+      meta: {
+        cinemaCount: cinemaResults.length,
+        streamingCount: streamingResults.length,
+        totalScraped: cinemaMovies.length,
+        mood,
+      }
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("movie-recommendations error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
