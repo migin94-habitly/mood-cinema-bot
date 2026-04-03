@@ -92,11 +92,17 @@ const SwipeCard: React.FC<{
           </div>
         </motion.div>
 
-        <div className="absolute top-4 left-4 z-20">
+        <div className="absolute top-4 left-4 z-20 flex gap-2">
           <div className="bg-primary px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg shadow-primary/30">
             <span className="material-symbols-outlined text-[16px] fill-1 text-primary-foreground">auto_awesome</span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-primary-foreground">AI Choice</span>
           </div>
+          {movie.ticketonUrl && (
+            <div className="bg-accent px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
+              <span className="text-[12px]">🎬</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-accent-foreground">В кино</span>
+            </div>
+          )}
         </div>
 
         <div className="absolute bottom-0 inset-x-0 p-6 pt-20 bg-gradient-to-t from-background via-background/90 to-transparent">

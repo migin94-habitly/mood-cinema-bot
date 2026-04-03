@@ -96,6 +96,16 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-6 glass border-t border-border flex flex-col gap-3">
+        {movie.ticketonUrl && (
+          <button 
+            onClick={() => window.open(movie.ticketonUrl, '_blank')}
+            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all border-2 border-accent"
+          >
+            <span className="text-lg">🎬</span>
+            <span className="text-base">Пойти в кино</span>
+            <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+          </button>
+        )}
         <button 
           onClick={onToggleWatchlist}
           className={`w-full font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] border-2 ${
