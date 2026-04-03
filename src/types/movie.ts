@@ -14,6 +14,7 @@ export interface Movie {
   platform: string;
   type: 'movie' | 'series';
   actors: Actor[];
+  ticketonUrl?: string;
 }
 
 export interface Actor {

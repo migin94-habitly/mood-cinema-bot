@@ -38,6 +38,83 @@ async function searchTmdbPerson(name: string, apiKey: string): Promise<string | 
   } catch { return null; }
 }
 
+interface CinemaMovie {
+  title: string;
+  url: string;
+  imageUrl: string;
+  ageRating: string;
+  date: string;
+  price: string;
+}
+
+async function scrapeTicketonCinema(): Promise<CinemaMovie[]> {
+  try {
+    const res = await fetch("https://ticketon.kz/almaty/cinema");
+    if (!res.ok) return [];
+    const html = await res.text();
+    
+    const movies: CinemaMovie[] = [];
+    // Parse movie entries from HTML - look for event links with movie data
+    const eventRegex = /href="(https:\/\/ticketon\.kz\/almaty\/event\/[^"]+)"[^>]*>[\s\S]*?<img[^>]+src="([^"]+)"[\s\S]*?(\d+\+)[\s\S]*?<[^>]*>([^<]+)<[\s\S]*?(\d+ \w+, \d+:\d+)/g;
+    
+    // Simpler approach: extract structured data using regex on the full HTML
+    const blockRegex = /<a[^>]*href="(https:\/\/ticketon\.kz\/almaty\/event\/[^"]+)"[^>]*class="[^"]*event-card[^"]*"[\s\S]*?<\/a>/g;
+    
+    // Fallback: parse from text content patterns
+    const titleUrlPairs: { title: string; url: string }[] = [];
+    const linkRegex = /href="(https:\/\/ticketon\.kz\/almaty\/event\/([^"]+))"[^>]*>/g;
+    let match;
+    const seenUrls = new Set<string>();
+    
+    while ((match = linkRegex.exec(html)) !== null) {
+      const url = match[1];
+      if (seenUrls.has(url)) continue;
+      seenUrls.add(url);
+      
+      // Extract title from the slug
+      const slug = match[2];
+      // Convert slug to readable title: "tvoe-serdtse-budet-razbito-2026" -> "Твое сердце будет разбито"
+      const cleanSlug = slug.replace(/-\d{4}$/, '').replace(/-/g, ' ');
+      titleUrlPairs.push({ title: cleanSlug, url });
+    }
+    
+    // Also try to extract actual titles from the HTML
+    const titleRegex = /<(?:h\d|strong|b|span)[^>]*class="[^"]*(?:title|name)[^"]*"[^>]*>([^<]+)</g;
+    
+    // Use a more reliable approach - look for known movie title patterns in markdown-like content
+    const strongRegex = /<strong[^>]*>([^<]+)<\/strong>/g;
+    const titles: string[] = [];
+    while ((match = strongRegex.exec(html)) !== null) {
+      const t = match[1].trim();
+      if (t.length > 2 && !t.includes('₸') && !t.includes('Freedom')) {
+        titles.push(t);
+      }
+    }
+    
+    // Match titles with URLs
+    for (let i = 0; i < Math.min(titleUrlPairs.length, 25); i++) {
+      const pair = titleUrlPairs[i];
+      // Skip non-movie events (sports, festivals)
+      if (pair.url.includes('-vs-') || pair.url.includes('festival') || pair.url.includes('concert')) continue;
+      
+      const movieTitle = titles[i] || pair.title;
+      movies.push({
+        title: movieTitle.replace(/\s*\(\d{4}\)\s*$/, ''),
+        url: pair.url,
+        imageUrl: '',
+        ageRating: '',
+        date: '',
+        price: '',
+      });
+    }
+    
+    return movies.slice(0, 15);
+  } catch (e) {
+    console.error("Failed to scrape ticketon:", e);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -49,17 +126,26 @@ serve(async (req) => {
 
     const moodContext = MOOD_CONTEXT[mood] || mood;
 
-    // Build dynamic constraints based on filters
+    // Scrape cinema movies in parallel with AI call
+    const cinemaPromise = scrapeTicketonCinema();
+
     let typeConstraint = "Микс фильмов и сериалов (примерно 7 фильмов + 5 сериалов)";
-    if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все 12 результатов должны быть фильмами (type: 'movie').";
-    else if (type === "series") typeConstraint = "ТОЛЬКО СЕРИАЛЫ, никаких фильмов. Все 12 результатов должны быть сериалами (type: 'series').";
+    if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все 10 результатов должны быть фильмами (type: 'movie').";
+    else if (type === "series") typeConstraint = "ТОЛЬКО СЕРИАЛЫ, никаких фильмов. Все 10 результатов должны быть сериалами (type: 'series').";
 
     let genreConstraint = "";
     if (genre) genreConstraint = `\nОБЯЗАТЕЛЬНЫЙ ЖАНР: Все рекомендации ДОЛЖНЫ относиться к жанру "${genre}". Это главный приоритет при подборе.`;
 
     let excludeConstraint = "";
     if (excludeTitles?.length > 0) {
-      excludeConstraint = `\n\nЗАПРЕЩЁННЫЕ ФИЛЬМЫ (НЕ РЕКОМЕНДУЙ ИХ, они уже были показаны пользователю):\n${excludeTitles.join(", ")}\n\nЭто СТРОГОЕ ограничение — ни один из перечисленных фильмов/сериалов не должен появиться в рекомендациях.`;
+      excludeConstraint = `\n\nЗАПРЕЩЁННЫЕ ФИЛЬМЫ (НЕ РЕКОМЕНДУЙ ИХ):\n${excludeTitles.join(", ")}`;
+    }
+
+    // Get cinema movies
+    const cinemaMovies = await cinemaPromise;
+    let cinemaContext = "";
+    if (cinemaMovies.length > 0) {
+      cinemaContext = `\n\nСЕЙЧАС В КИНОТЕАТРАХ АЛМАТЫ (ticketon.kz):\n${cinemaMovies.map(m => `- "${m.title}" (${m.url})`).join('\n')}\n\nЕсли какие-то из этих фильмов подходят под настроение "${mood}" (${moodContext}), ОБЯЗАТЕЛЬНО включи их в рекомендации (максимум 3-4 фильма из кинотеатров). Для таких фильмов установи platform: "Кинотеатр" и добавь поле ticketonUrl с соответствующей ссылкой из списка выше.`;
     }
 
     const prompt = `Ты — эксперт по кино и сериалам с энциклопедическими знаниями.
@@ -69,14 +155,15 @@ serve(async (req) => {
 
 ФИЛЬТРЫ:
 - Тип: ${typeConstraint}${genreConstraint}
+${cinemaContext}
 
 ТРЕБОВАНИЯ:
 1. ТОЛЬКО РЕАЛЬНО СУЩЕСТВУЮЩИЕ фильмы/сериалы
-2. Приоритет: 2022-2025, можно 1-2 классики
+2. Приоритет: 2022-2026, можно 1-2 классики
 3. Рейтинги РЕАЛЬНЫЕ (IMDB и Кинопоиск)
 4. Указывай РЕАЛЬНУЮ платформу
 
-ПЛАТФОРМЫ: Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+, HDRezka, Кинопоиск HD, Okko, IVI, Wink, Hulu, Paramount+
+ПЛАТФОРМЫ: Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+, HDRezka, Кинопоиск HD, Okko, IVI, Wink, Hulu, Paramount+, Кинотеатр
 
 ДЛЯ КАЖДОГО:
 - title: русское название
@@ -86,6 +173,7 @@ serve(async (req) => {
 - description: 2-3 предложения на русском
 - platform, type ("movie"/"series")
 - actors: 2-3 актёра
+- ticketonUrl: ссылка на ticketon.kz ТОЛЬКО если фильм сейчас в кинотеатрах Алматы (из списка выше), иначе null
 
 posterUrl: https://picsum.photos/seed/{titleOriginal_no_spaces}/400/600
 imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/100
@@ -136,7 +224,8 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
                           properties: { name: { type: "string" }, imageUrl: { type: "string" } },
                           required: ["name", "imageUrl"]
                         }
-                      }
+                      },
+                      ticketonUrl: { type: "string", description: "URL to ticketon.kz event page, null if not in cinemas" }
                     },
                     required: ["id", "title", "titleOriginal", "year", "duration", "ratingImdb", "ratingKinopoisk", "genres", "description", "posterUrl", "platform", "type", "actors"]
                   }
@@ -170,6 +259,14 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
         try { const p = JSON.parse(content); movies = Array.isArray(p) ? p : p.movies || []; } catch {}
       }
     }
+
+    // Clean up ticketonUrl - ensure only valid ticketon URLs
+    movies = movies.map((m: any) => {
+      if (m.ticketonUrl && !m.ticketonUrl.startsWith('https://ticketon.kz/')) {
+        m.ticketonUrl = null;
+      }
+      return m;
+    });
 
     // Enrich with TMDB
     if (TMDB_API_KEY && movies.length > 0) {
