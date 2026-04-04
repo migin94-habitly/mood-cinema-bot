@@ -137,9 +137,18 @@ const SwipeCard: React.FC<{
               ))}
               <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-md border border-border uppercase tracking-wider">{movie.duration}</span>
             </div>
-            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed mb-3">
               {movie.description}
             </p>
+            {movie.ticketonUrl && (
+              <button
+                onClick={(e) => { e.stopPropagation(); window.open(movie.ticketonUrl, '_blank'); }}
+                className="w-full py-2.5 bg-accent text-accent-foreground text-xs font-bold rounded-lg flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+              >
+                <span className="text-base">🎬</span>
+                В кино — Выбрать сеанс
+              </button>
+            )}
           </div>
         </div>
       </div>
