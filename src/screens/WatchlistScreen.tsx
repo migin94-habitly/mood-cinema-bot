@@ -72,13 +72,23 @@ const SwipeableCard: React.FC<{
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border inline-block" style={getPlatformStyle(movie.platform)}>{movie.platform}</span>
           <span className="text-[10px] text-muted-foreground ml-2">{movie.year}</span>
         </div>
-        <button
-          onClick={() => onWatch(movie)}
-          className="mt-1 w-full py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-1"
-        >
-          <span className="material-symbols-outlined text-sm">play_arrow</span>
-          Смотреть
-        </button>
+        {movie.ticketonUrl ? (
+          <button
+            onClick={() => window.open(movie.ticketonUrl, '_blank')}
+            className="mt-1 w-full py-2 bg-accent text-accent-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-accent/20 flex items-center justify-center gap-1"
+          >
+            <span className="text-sm">🎬</span>
+            Выбрать сеанс
+          </button>
+        ) : (
+          <button
+            onClick={() => onWatch(movie)}
+            className="mt-1 w-full py-2 bg-primary text-primary-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-1"
+          >
+            <span className="material-symbols-outlined text-sm">play_arrow</span>
+            Смотреть
+          </button>
+        )}
       </motion.div>
     </div>
   );
