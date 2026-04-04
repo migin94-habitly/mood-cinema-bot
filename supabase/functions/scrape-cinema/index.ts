@@ -15,31 +15,48 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch Ticketon cinema page
-    const res = await fetch("https://ticketon.kz/almaty/cinema", {
-      redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Cache-Control": "no-cache",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-      },
-    });
-
-    if (!res.ok) {
-      console.error(`Ticketon fetch failed: ${res.status}`);
-      return new Response(JSON.stringify({ error: `Fetch failed: ${res.status}` }), {
+    // Try fetching Ticketon - handle redirects manually
+    let finalUrl = "https://ticketon.kz/almaty/cinema";
+    let html = "";
+    let attempts = 0;
+    
+    while (attempts < 5) {
+      const res = await fetch(finalUrl, {
+        redirect: "manual",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9",
+          "Cookie": "city=almaty",
+        },
+      });
+      
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location) break;
+        finalUrl = location.startsWith("http") ? location : `https://ticketon.kz${location}`;
+        attempts++;
+        continue;
+      }
+      
+      if (!res.ok) {
+        console.error(`Ticketon fetch failed: ${res.status}`);
+        return new Response(JSON.stringify({ error: `Fetch failed: ${res.status}`, url: finalUrl }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      html = await res.text();
+      break;
+    }
+    
+    if (!html) {
+      return new Response(JSON.stringify({ error: "Too many redirects", lastUrl: finalUrl }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const html = await res.text();
     const doc = new DOMParser().parseFromString(html, "text/html");
     if (!doc) throw new Error("Failed to parse HTML");
 
