@@ -98,8 +98,8 @@ if (typeof window !== 'undefined') {
 // ---------- Public API ----------
 
 function getCommonProps(): Props {
-  const tg = getTelegramWebApp();
-  const user = tg?.initDataUnsafe?.user;
+  const tg = getTelegramWebApp() as any;
+  const user: any = tg?.initDataUnsafe?.user;
   return {
     user_id: getUserId(),
     platform: tg?.platform ?? 'web',
