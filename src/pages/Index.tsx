@@ -7,12 +7,17 @@ import { DiscoveryScreen, DiscoveryFilters } from '@/screens/DiscoveryScreen';
 import { WatchlistScreen } from '@/screens/WatchlistScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DetailsScreen } from '@/screens/DetailsScreen';
+import { PaywallScreen } from '@/screens/PaywallScreen';
 import { ScreenTransition } from '@/components/ScreenTransition';
 import { DiscoverySkeleton } from '@/components/Skeletons';
 import { getMovieRecommendations, getRecentlyRecommended, saveRecommendationHistory } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { usePersistence, getUserId } from '@/hooks/usePersistence';
 import { trackEvent } from '@/services/analyticsService';
+import { trackMoodUsage, incrementDailyUsage } from '@/services/engagementService';
+import { useEngagement } from '@/hooks/useEngagement';
+import { FREE_DAILY_LIMIT } from '@/services/proService';
+import { useToast } from '@/hooks/use-toast';
 
 const BACK_MAP: Partial<Record<Screen, Screen>> = {
   MOOD_GRID: 'WELCOME',
@@ -21,6 +26,7 @@ const BACK_MAP: Partial<Record<Screen, Screen>> = {
   WATCHLIST: 'DISCOVERY',
   PROFILE: 'DISCOVERY',
   DETAILS: 'DISCOVERY',
+  PAYWALL: 'PROFILE',
 };
 
 const Index: React.FC = () => {
@@ -46,6 +52,9 @@ const Index: React.FC = () => {
   }, []);
 
   const { saveStats, addToWatchlist, removeFromWatchlist } = usePersistence(handleDataLoaded);
+  const { stats: engagementStats, pro, refresh: refreshEngagement } = useEngagement();
+  const { toast } = useToast();
+  const [paywallReason, setPaywallReason] = useState<string | undefined>(undefined);
 
   const screenRef = useRef(state.currentScreen);
   screenRef.current = state.currentScreen;
@@ -87,6 +96,13 @@ const Index: React.FC = () => {
   const handleMoodSelect = (mood: MoodType) => {
     haptic.medium();
     trackEvent('mood_select', { mood });
+    trackMoodUsage(mood);
+    // Free limit check
+    if (!pro.isPro && (engagementStats?.todayUsage ?? 0) >= FREE_DAILY_LIMIT) {
+      setPaywallReason(`Дневной лимит ${FREE_DAILY_LIMIT} подборов исчерпан. Открой безлимит с Pro.`);
+      setState(prev => ({ ...prev, currentScreen: 'PAYWALL' }));
+      return;
+    }
     setActiveFilters({});
     setState(prev => ({ ...prev, selectedMood: mood, currentScreen: 'AI_PROCESSING' }));
   };
@@ -97,6 +113,7 @@ const Index: React.FC = () => {
     const movies = await getMovieRecommendations(mood, type, genre, excludeTitles);
     if (movies.length > 0) {
       await saveRecommendationHistory(userId, movies);
+      incrementDailyUsage().then(() => refreshEngagement());
     }
     haptic.success();
     setState(prev => ({
@@ -107,7 +124,7 @@ const Index: React.FC = () => {
       selectedMood: mood,
     }));
     setIsRefreshing(false);
-  }, []);
+  }, [refreshEngagement]);
 
   const handleRefresh = useCallback(() => {
     if (state.selectedMood && !isRefreshing) {
@@ -216,7 +233,16 @@ const Index: React.FC = () => {
         content = <WatchlistScreen movies={state.watchlist} onBack={() => navigateTo('DISCOVERY')} onNavigate={navigateTo} onRemove={(movie) => handleToggleWatchlist(movie)} />;
         break;
       case 'PROFILE':
-        content = <ProfileScreen watchlistCount={state.watchlist.length} swipeCount={swipeCount} watchedCount={watchedCount} onNavigate={navigateTo} />;
+        content = <ProfileScreen
+          watchlistCount={state.watchlist.length}
+          swipeCount={swipeCount}
+          watchedCount={watchedCount}
+          engagement={engagementStats}
+          isPro={pro.isPro}
+          proExpiresAt={pro.expiresAt}
+          onNavigate={navigateTo}
+          onOpenPaywall={() => { setPaywallReason(undefined); navigateTo('PAYWALL'); }}
+        />;
         break;
       case 'DETAILS':
         content = (
@@ -227,6 +253,18 @@ const Index: React.FC = () => {
             onToggleWatchlist={() => handleToggleWatchlist(state.selectedMovie!)}
           />
         );
+        break;
+      case 'PAYWALL':
+        content = <PaywallScreen
+          reason={paywallReason}
+          onClose={() => navigateTo('PROFILE')}
+          onActivated={() => {
+            toast({ title: '🌟 Pro активирован!', description: 'Спасибо за поддержку. Все возможности открыты.' });
+            refreshEngagement();
+            navigateTo('DISCOVERY');
+          }}
+          onNavigate={navigateTo}
+        />;
         break;
       default:
         content = <WelcomeScreen onStart={() => navigateTo('MOOD_GRID')} />;

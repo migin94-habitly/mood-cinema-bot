@@ -98,7 +98,11 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
       <div className="fixed bottom-0 left-0 right-0 p-6 glass border-t border-border flex flex-col gap-3">
         {movie.ticketonUrl && (
           <button 
-            onClick={() => window.open(movie.ticketonUrl, '_blank')}
+            onClick={async () => {
+              const { trackCinemaClick } = await import('@/services/engagementService');
+              trackCinemaClick(movie.title, movie.ticketonUrl!);
+              window.open(movie.ticketonUrl, '_blank');
+            }}
             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all border-2 border-accent"
           >
             <span className="text-lg">🎬</span>

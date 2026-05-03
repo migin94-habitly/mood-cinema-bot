@@ -2,12 +2,17 @@ import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react'
 import { Screen } from '@/types/movie';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { EngagementStats } from '@/services/engagementService';
 
 interface Props {
   watchlistCount: number;
   swipeCount: number;
   watchedCount: number;
+  engagement?: EngagementStats | null;
+  isPro?: boolean;
+  proExpiresAt?: Date | null;
   onNavigate: (screen: Screen) => void;
+  onOpenPaywall?: () => void;
 }
 
 interface Achievement {
@@ -20,7 +25,13 @@ interface Achievement {
   progressLabel?: string;
 }
 
-function getAchievements(swipes: number, watched: number, watchlist: number): Achievement[] {
+function getAchievements(swipes: number, watched: number, watchlist: number, e?: EngagementStats | null): Achievement[] {
+  const streak = e?.currentStreak ?? 0;
+  const totalDays = e?.totalDays ?? 0;
+  const lateNight = e?.lateNightSessions ?? 0;
+  const uniqueMoods = e?.uniqueMoods ?? 0;
+  const cinema = e?.cinemaClicks ?? 0;
+  const watchedDone = e?.watchedCount ?? 0;
   return [
     {
       id: 'first_swipe',
@@ -28,6 +39,13 @@ function getAchievements(swipes: number, watched: number, watchlist: number): Ac
       title: 'Первый свайп',
       description: 'Сделай свой первый свайп',
       unlocked: swipes >= 1,
+    },
+    {
+      id: 'first_like',
+      icon: '❤️',
+      title: 'Первая любовь',
+      description: 'Добавь фильм в шортлист',
+      unlocked: watched >= 1,
     },
     {
       id: 'explorer',
@@ -39,6 +57,30 @@ function getAchievements(swipes: number, watched: number, watchlist: number): Ac
       progressLabel: `${Math.min(swipes, 10)}/10`,
     },
     {
+      id: 'streak_3', icon: '🔥', title: 'Огонёк',
+      description: 'Заходи 3 дня подряд', unlocked: streak >= 3,
+      progress: Math.min(streak / 3, 1), progressLabel: `${Math.min(streak, 3)}/3`,
+    },
+    {
+      id: 'streak_7', icon: '🔥', title: 'Неделя огня',
+      description: 'Заходи 7 дней подряд', unlocked: streak >= 7,
+      progress: Math.min(streak / 7, 1), progressLabel: `${Math.min(streak, 7)}/7`,
+    },
+    {
+      id: 'mood_master', icon: '🎭', title: 'Меломан настроений',
+      description: 'Попробуй все 6 настроений', unlocked: uniqueMoods >= 6,
+      progress: Math.min(uniqueMoods / 6, 1), progressLabel: `${Math.min(uniqueMoods, 6)}/6`,
+    },
+    {
+      id: 'night_owl', icon: '🌙', title: 'Ночной киноман',
+      description: '5 сессий после 23:00', unlocked: lateNight >= 5,
+      progress: Math.min(lateNight / 5, 1), progressLabel: `${Math.min(lateNight, 5)}/5`,
+    },
+    {
+      id: 'first_cinema', icon: '🎟️', title: 'В кино!',
+      description: 'Открой Ticketon из приложения', unlocked: cinema >= 1,
+    },
+    {
       id: 'cinephile',
       icon: '🎬',
       title: 'Синефил',
@@ -46,13 +88,6 @@ function getAchievements(swipes: number, watched: number, watchlist: number): Ac
       unlocked: swipes >= 50,
       progress: Math.min(swipes / 50, 1),
       progressLabel: `${Math.min(swipes, 50)}/50`,
-    },
-    {
-      id: 'first_like',
-      icon: '❤️',
-      title: 'Первая любовь',
-      description: 'Добавь фильм в шортлист',
-      unlocked: watched >= 1,
     },
     {
       id: 'collector',
@@ -73,6 +108,16 @@ function getAchievements(swipes: number, watched: number, watchlist: number): Ac
       progressLabel: `${Math.min(watched, 10)}/10`,
     },
     {
+      id: 'shortlist_pro', icon: '📝', title: 'Шортлист-эксперт',
+      description: 'Посмотри 5 фильмов из шортлиста', unlocked: watchedDone >= 5,
+      progress: Math.min(watchedDone / 5, 1), progressLabel: `${Math.min(watchedDone, 5)}/5`,
+    },
+    {
+      id: 'streak_30', icon: '🏆', title: 'Месяц подряд',
+      description: 'Streak 30 дней', unlocked: streak >= 30,
+      progress: Math.min(streak / 30, 1), progressLabel: `${Math.min(streak, 30)}/30`,
+    },
+    {
       id: 'addict',
       icon: '🏆',
       title: 'Киноман',
@@ -82,6 +127,16 @@ function getAchievements(swipes: number, watched: number, watchlist: number): Ac
       progressLabel: `${Math.min(swipes, 100)}/100`,
     },
     {
+      id: 'swipe_500', icon: '🎯', title: 'Профи',
+      description: 'Свайпни 500 фильмов', unlocked: swipes >= 500,
+      progress: Math.min(swipes / 500, 1), progressLabel: `${Math.min(swipes, 500)}/500`,
+    },
+    {
+      id: 'swipe_1000', icon: '👑', title: 'Легенда',
+      description: 'Свайпни 1000 фильмов', unlocked: swipes >= 1000,
+      progress: Math.min(swipes / 1000, 1), progressLabel: `${Math.min(swipes, 1000)}/1000`,
+    },
+    {
       id: 'curator',
       icon: '🎯',
       title: 'Куратор',
@@ -89,6 +144,21 @@ function getAchievements(swipes: number, watched: number, watchlist: number): Ac
       unlocked: watchlist >= 20,
       progress: Math.min(watchlist / 20, 1),
       progressLabel: `${Math.min(watchlist, 20)}/20`,
+    },
+    {
+      id: 'collection_50', icon: '📚', title: 'Архивариус',
+      description: '50 фильмов в шортлисте', unlocked: watchlist >= 50,
+      progress: Math.min(watchlist / 50, 1), progressLabel: `${Math.min(watchlist, 50)}/50`,
+    },
+    {
+      id: 'cinema_10', icon: '🎫', title: 'Кинозритель',
+      description: '10 переходов на Ticketon', unlocked: cinema >= 10,
+      progress: Math.min(cinema / 10, 1), progressLabel: `${Math.min(cinema, 10)}/10`,
+    },
+    {
+      id: 'days_100', icon: '💎', title: '100 дней',
+      description: 'Используй приложение 100 дней', unlocked: totalDays >= 100,
+      progress: Math.min(totalDays / 100, 1), progressLabel: `${Math.min(totalDays, 100)}/100`,
     },
   ];
 }
@@ -222,7 +292,7 @@ const CelebrationOverlay: React.FC<{ achievement: Achievement; onDone: () => voi
   );
 };
 
-export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, watchedCount, onNavigate }) => {
+export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, watchedCount, engagement, isPro, proExpiresAt, onNavigate, onOpenPaywall }) => {
   const tgUser = useMemo(() => {
     const tg = getTelegramWebApp();
     return tg?.initDataUnsafe?.user ?? null;
@@ -235,8 +305,8 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
   const avatarUrl = tgUser?.photo_url || 'https://picsum.photos/seed/user/200/200';
 
   const achievements = useMemo(
-    () => getAchievements(swipeCount, watchedCount, watchlistCount),
-    [swipeCount, watchedCount, watchlistCount]
+    () => getAchievements(swipeCount, watchedCount, watchlistCount, engagement),
+    [swipeCount, watchedCount, watchlistCount, engagement]
   );
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
@@ -299,7 +369,15 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold truncate">{displayName}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold truncate">{displayName}</h2>
+              {isPro && (
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider text-white"
+                  style={{ background: 'linear-gradient(135deg, hsl(272 90% 55%), hsl(280 80% 65%))' }}>
+                  PRO
+                </span>
+              )}
+            </div>
             <p className="text-primary text-sm font-medium">{username}</p>
           </div>
           <div className="text-right shrink-0">
@@ -307,6 +385,49 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
             <div className="text-2xl font-black text-primary">{level}</div>
           </div>
         </motion.div>
+
+        {/* Streak card */}
+        {engagement && engagement.currentStreak > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mb-4 flex items-center gap-3 p-3 rounded-2xl border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-red-500/10"
+          >
+            <div className="size-12 rounded-xl flex items-center justify-center text-2xl bg-orange-500/20">🔥</div>
+            <div className="flex-1">
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Серия дней</p>
+              <p className="text-xl font-black">
+                {engagement.currentStreak} {engagement.currentStreak === 1 ? 'день' : engagement.currentStreak < 5 ? 'дня' : 'дней'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Рекорд: {engagement.longestStreak} • Всего: {engagement.totalDays}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Pro CTA / status */}
+        {!isPro && onOpenPaywall && (
+          <motion.button
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            transition={{ delay: 0.08 }}
+            onClick={onOpenPaywall}
+            className="w-full mb-4 p-3 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition-transform border"
+            style={{ background: 'linear-gradient(135deg, hsl(272 90% 55% / 0.12), hsl(280 80% 65% / 0.12))', borderColor: 'hsl(272 90% 55% / 0.3)' }}
+          >
+            <div className="size-10 rounded-xl flex items-center justify-center text-xl"
+              style={{ background: 'linear-gradient(135deg, hsl(272 90% 55%), hsl(280 80% 65%))' }}>🌟</div>
+            <div className="flex-1 text-left">
+              <p className="font-bold text-sm">Получи Cinemate Pro</p>
+              <p className="text-[11px] text-muted-foreground">Безлимит подборов и больше</p>
+            </div>
+            <span className="material-symbols-outlined text-primary">chevron_right</span>
+          </motion.button>
+        )}
+        {isPro && proExpiresAt && (
+          <div className="mb-4 p-3 rounded-2xl border border-primary/30 bg-primary/10 text-center">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider">🌟 Pro активен</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">До {proExpiresAt.toLocaleDateString('ru-RU')}</p>
+          </div>
+        )}
 
         {/* Level progress */}
         <motion.div

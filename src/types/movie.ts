@@ -22,7 +22,7 @@ export interface Actor {
   imageUrl: string;
 }
 
-export type Screen = 'WELCOME' | 'MOOD_GRID' | 'AI_PROCESSING' | 'DISCOVERY' | 'WATCHLIST' | 'PROFILE' | 'DETAILS';
+export type Screen = 'WELCOME' | 'MOOD_GRID' | 'AI_PROCESSING' | 'DISCOVERY' | 'WATCHLIST' | 'PROFILE' | 'DETAILS' | 'PAYWALL';
 
 export interface AppState {
   currentScreen: Screen;
