@@ -22,7 +22,7 @@ interface CinemaMovie {
   age_rating: string;
 }
 
-async function getCinemaMoviesFromDB(): Promise<CinemaMovie[]> {
+async function getCinemaMoviesFromDB(city: string): Promise<CinemaMovie[]> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -30,6 +30,7 @@ async function getCinemaMoviesFromDB(): Promise<CinemaMovie[]> {
   const { data, error } = await supabase
     .from("cinema_movies")
     .select("title, url, image_url, age_rating")
+    .eq("city", city)
     .order("scraped_at", { ascending: false });
   
   if (error) {
@@ -37,7 +38,7 @@ async function getCinemaMoviesFromDB(): Promise<CinemaMovie[]> {
     return [];
   }
   
-  console.log(`DB: loaded ${data?.length || 0} cinema movies`);
+  console.log(`DB: loaded ${data?.length || 0} cinema movies for city=${city}`);
   return data || [];
 }
 
@@ -74,15 +75,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { mood, type, genre, excludeTitles } = await req.json();
+    const { mood, type, genre, excludeTitles, city } = await req.json();
+    // city: KZ city slug ("almaty"...) or "other" / undefined → AI-only mode
+    const cityKey = typeof city === "string" ? city : "almaty";
+    const aiOnly = !cityKey || cityKey === "other";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
     const TMDB_API_KEY = Deno.env.get("TMDB_API_KEY");
 
     const moodContext = MOOD_CONTEXT[mood] || mood;
 
-    // Load cinema movies from database
-    const cinemaMovies = await getCinemaMoviesFromDB();
+    // Load cinema movies from database (skip for AI-only / non-KZ users)
+    const cinemaMovies = aiOnly ? [] : await getCinemaMoviesFromDB(cityKey);
 
     let typeConstraint = "Микс фильмов и сериалов (примерно 7 фильмов + 5 сериалов)";
     if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все результаты должны быть фильмами (type: 'movie').";

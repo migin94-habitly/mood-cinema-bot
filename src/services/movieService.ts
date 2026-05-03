@@ -27,11 +27,12 @@ export async function getMovieRecommendations(
   mood: MoodType,
   type?: string,
   genre?: string | null,
-  excludeTitles?: string[]
+  excludeTitles?: string[],
+  city?: string,
 ): Promise<Movie[]> {
   try {
     const { data, error } = await supabase.functions.invoke('movie-recommendations', {
-      body: { mood, type, genre, excludeTitles },
+      body: { mood, type, genre, excludeTitles, city },
     });
 
     if (error) {

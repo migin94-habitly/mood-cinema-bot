@@ -18,6 +18,7 @@ import { trackMoodUsage, incrementDailyUsage } from '@/services/engagementServic
 import { useEngagement } from '@/hooks/useEngagement';
 import { FREE_DAILY_LIMIT } from '@/services/proService';
 import { useToast } from '@/hooks/use-toast';
+import { City, getSavedCity } from '@/constants/cities';
 
 const BACK_MAP: Partial<Record<Screen, Screen>> = {
   MOOD_GRID: 'WELCOME',
@@ -42,6 +43,7 @@ const Index: React.FC = () => {
   const [swipeCount, setSwipeCount] = useState(0);
   const [watchedCount, setWatchedCount] = useState(0);
   const [activeFilters, setActiveFilters] = useState<{ type?: string; genre?: string | null }>({});
+  const [city, setCity] = useState<City>(() => getSavedCity());
   const [dataLoaded, setDataLoaded] = useState(false);
 
   const handleDataLoaded = useCallback((data: { watchlist: Movie[]; swipeCount: number; watchedCount: number }) => {
@@ -96,10 +98,11 @@ const Index: React.FC = () => {
     setState(prev => ({ ...prev, currentScreen: screen }));
   };
 
-  const handleMoodSelect = (mood: MoodType) => {
+  const handleMoodSelect = (mood: MoodType, selectedCity: City) => {
     haptic.medium();
-    trackEvent('mood_select', { mood });
+    trackEvent('mood_select', { mood, city: selectedCity.id });
     trackMoodUsage(mood);
+    setCity(selectedCity);
     // Free limit check
     if (!pro.isPro && (engagementStats?.todayUsage ?? 0) >= FREE_DAILY_LIMIT) {
       trackEvent('free_limit_hit', { limit: FREE_DAILY_LIMIT });
@@ -114,11 +117,11 @@ const Index: React.FC = () => {
   const fetchMovies = useCallback(async (mood: MoodType, type?: string, genre?: string | null) => {
     const userId = getUserId();
     const excludeTitles = await getRecentlyRecommended(userId);
-    const movies = await getMovieRecommendations(mood, type, genre, excludeTitles);
+    const movies = await getMovieRecommendations(mood, type, genre, excludeTitles, city.id);
     if (movies.length > 0) {
       await saveRecommendationHistory(userId, movies);
       incrementDailyUsage().then(() => refreshEngagement());
-      trackEvent('recommendations_loaded', { count: movies.length, mood, type, genre });
+      trackEvent('recommendations_loaded', { count: movies.length, mood, type, genre, city: city.id });
     }
     haptic.success();
     setState(prev => ({
@@ -129,7 +132,7 @@ const Index: React.FC = () => {
       selectedMood: mood,
     }));
     setIsRefreshing(false);
-  }, [refreshEngagement]);
+  }, [refreshEngagement, city.id]);
 
   const handleRefresh = useCallback(() => {
     if (state.selectedMood && !isRefreshing) {
