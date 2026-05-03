@@ -38,6 +38,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cinema_clicks: {
+        Row: {
+          clicked_at: string
+          id: string
+          movie_title: string | null
+          movie_url: string | null
+          telegram_user_id: string
+        }
+        Insert: {
+          clicked_at?: string
+          id?: string
+          movie_title?: string | null
+          movie_url?: string | null
+          telegram_user_id: string
+        }
+        Update: {
+          clicked_at?: string
+          id?: string
+          movie_title?: string | null
+          movie_url?: string | null
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
       cinema_movies: {
         Row: {
           age_rating: string | null
@@ -65,6 +89,90 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          id: string
+          last_active_date: string
+          late_night_sessions: number
+          longest_streak: number
+          telegram_user_id: string
+          total_days: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_active_date?: string
+          late_night_sessions?: number
+          longest_streak?: number
+          telegram_user_id: string
+          total_days?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_active_date?: string
+          late_night_sessions?: number
+          longest_streak?: number
+          telegram_user_id?: string
+          total_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      daily_usage: {
+        Row: {
+          id: string
+          recommendation_count: number
+          telegram_user_id: string
+          usage_date: string
+        }
+        Insert: {
+          id?: string
+          recommendation_count?: number
+          telegram_user_id: string
+          usage_date?: string
+        }
+        Update: {
+          id?: string
+          recommendation_count?: number
+          telegram_user_id?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
+      mood_history: {
+        Row: {
+          first_used_at: string
+          id: string
+          last_used_at: string
+          mood: string
+          telegram_user_id: string
+          use_count: number
+        }
+        Insert: {
+          first_used_at?: string
+          id?: string
+          last_used_at?: string
+          mood: string
+          telegram_user_id: string
+          use_count?: number
+        }
+        Update: {
+          first_used_at?: string
+          id?: string
+          last_used_at?: string
+          mood?: string
+          telegram_user_id?: string
+          use_count?: number
+        }
+        Relationships: []
+      }
       recommendation_history: {
         Row: {
           id: string
@@ -86,6 +194,45 @@ export type Database = {
           movie_title_original?: string | null
           recommended_at?: string
           telegram_user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          last_payment_charge_id: string | null
+          last_payment_payload: string | null
+          stars_paid: number
+          status: string
+          telegram_user_id: string
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_payment_charge_id?: string | null
+          last_payment_payload?: string | null
+          stars_paid?: number
+          status?: string
+          telegram_user_id: string
+          tier?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_payment_charge_id?: string | null
+          last_payment_payload?: string | null
+          stars_paid?: number
+          status?: string
+          telegram_user_id?: string
+          tier?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -113,6 +260,33 @@ export type Database = {
           telegram_user_id?: string
           updated_at?: string
           watched_count?: number
+        }
+        Relationships: []
+      }
+      watched_movies: {
+        Row: {
+          id: string
+          movie_id: string
+          movie_title: string | null
+          rating: number | null
+          telegram_user_id: string
+          watched_at: string
+        }
+        Insert: {
+          id?: string
+          movie_id: string
+          movie_title?: string | null
+          rating?: number | null
+          telegram_user_id: string
+          watched_at?: string
+        }
+        Update: {
+          id?: string
+          movie_id?: string
+          movie_title?: string | null
+          rating?: number | null
+          telegram_user_id?: string
+          watched_at?: string
         }
         Relationships: []
       }
@@ -145,7 +319,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      touch_streak: {
+        Args: { p_user_id: string }
+        Returns: {
+          current_streak: number
+          last_active_date: string
+          longest_streak: number
+          total_days: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
