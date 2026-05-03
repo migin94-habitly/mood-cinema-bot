@@ -4,6 +4,7 @@ import { Movie, Screen, MoodType } from '@/types/movie';
 import { haptic } from '@/lib/telegram';
 import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
 import { MOODS } from '@/constants/moods';
+import { trackCinemaClick } from '@/services/engagementService';
 
 export interface DiscoveryFilters {
   mood: MoodType;
@@ -142,7 +143,7 @@ const SwipeCard: React.FC<{
             </p>
             {movie.ticketonUrl && (
               <button
-                onClick={(e) => { e.stopPropagation(); window.open(movie.ticketonUrl, '_blank'); }}
+                onClick={(e) => { e.stopPropagation(); trackCinemaClick(movie.title, movie.ticketonUrl!); window.open(movie.ticketonUrl, '_blank'); }}
                 className="w-full py-2.5 bg-accent text-accent-foreground text-xs font-bold rounded-lg flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
               >
                 <span className="text-base">🎬</span>

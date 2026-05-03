@@ -3,6 +3,7 @@ import { Movie, Screen } from '@/types/movie';
 import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
 import { AnimatePresence, motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { haptic } from '@/lib/telegram';
+import { trackCinemaClick, markWatched, unmarkWatched } from '@/services/engagementService';
 
 interface Props {
   movies: Movie[];
@@ -22,7 +23,9 @@ const SwipeableCard: React.FC<{
   movie: Movie;
   onWatch: (movie: Movie) => void;
   onRemove: (movie: Movie) => void;
-}> = ({ movie, onWatch, onRemove }) => {
+  isWatched: boolean;
+  onToggleWatched: (movie: Movie) => void;
+}> = ({ movie, onWatch, onRemove, isWatched, onToggleWatched }) => {
   const x = useMotionValue(0);
   const deleteOpacity = useTransform(x, [-120, -60, 0], [1, 0.8, 0]);
   const deleteScale = useTransform(x, [-120, -60, 0], [1, 0.8, 0.5]);
@@ -62,6 +65,13 @@ const SwipeableCard: React.FC<{
           <div className="absolute top-2 right-2 size-7 glass rounded-full flex items-center justify-center text-primary">
             <span className="material-symbols-outlined text-sm fill-1">favorite</span>
           </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); haptic.selection(); onToggleWatched(movie); }}
+            className={`absolute top-2 left-2 size-7 rounded-full flex items-center justify-center transition-colors ${isWatched ? 'bg-success/90 text-success-foreground' : 'glass text-muted-foreground'}`}
+            title={isWatched ? 'Отметить как непросмотренное' : 'Я посмотрел'}
+          >
+            <span className="material-symbols-outlined text-sm">{isWatched ? 'check' : 'visibility'}</span>
+          </button>
         </div>
         <h3 className="font-bold text-sm truncate px-1">{movie.title}</h3>
         <div className="flex items-center gap-2 px-1">
@@ -74,7 +84,7 @@ const SwipeableCard: React.FC<{
         </div>
         {movie.ticketonUrl ? (
           <button
-            onClick={() => window.open(movie.ticketonUrl, '_blank')}
+            onClick={() => { trackCinemaClick(movie.title, movie.ticketonUrl!); window.open(movie.ticketonUrl, '_blank'); }}
             className="mt-1 w-full py-2 bg-accent text-accent-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-accent/20 flex items-center justify-center gap-1"
           >
             <span className="text-sm">🎬</span>
@@ -96,6 +106,37 @@ const SwipeableCard: React.FC<{
 
 export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate, onRemove }) => {
   const [sourceMovie, setSourceMovie] = useState<Movie | null>(null);
+  const [watchedIds, setWatchedIds] = useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    // Load watched status for these movies
+    (async () => {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { getUserId } = await import('@/hooks/usePersistence');
+      const userId = getUserId();
+      if (!userId || movies.length === 0) return;
+      const { data } = await supabase
+        .from('watched_movies')
+        .select('movie_id')
+        .eq('telegram_user_id', userId)
+        .in('movie_id', movies.map(m => m.id));
+      setWatchedIds(new Set((data ?? []).map(r => r.movie_id)));
+    })();
+  }, [movies]);
+
+  const handleToggleWatched = (movie: Movie) => {
+    setWatchedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(movie.id)) {
+        next.delete(movie.id);
+        unmarkWatched(movie.id);
+      } else {
+        next.add(movie.id);
+        markWatched(movie.id, movie.title);
+      }
+      return next;
+    });
+  };
 
   const handleWatch = (source: typeof WATCH_SOURCES[0]) => {
     if (!sourceMovie) return;
@@ -141,7 +182,13 @@ export const WatchlistScreen: React.FC<Props> = ({ movies, onBack, onNavigate, o
                   layout
                   exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.25 } }}
                 >
-                  <SwipeableCard movie={movie} onWatch={setSourceMovie} onRemove={handleRemove} />
+                  <SwipeableCard
+                    movie={movie}
+                    onWatch={setSourceMovie}
+                    onRemove={handleRemove}
+                    isWatched={watchedIds.has(movie.id)}
+                    onToggleWatched={handleToggleWatched}
+                  />
                 </motion.div>
               ))}
             </AnimatePresence>
