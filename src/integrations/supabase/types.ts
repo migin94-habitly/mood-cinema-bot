@@ -65,6 +65,7 @@ export type Database = {
       cinema_movies: {
         Row: {
           age_rating: string | null
+          city: string
           id: string
           image_url: string | null
           scraped_at: string
@@ -73,6 +74,7 @@ export type Database = {
         }
         Insert: {
           age_rating?: string | null
+          city?: string
           id?: string
           image_url?: string | null
           scraped_at?: string
@@ -81,6 +83,7 @@ export type Database = {
         }
         Update: {
           age_rating?: string | null
+          city?: string
           id?: string
           image_url?: string | null
           scraped_at?: string
