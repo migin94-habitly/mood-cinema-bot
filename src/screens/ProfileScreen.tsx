@@ -369,7 +369,15 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold truncate">{displayName}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold truncate">{displayName}</h2>
+              {isPro && (
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider text-white"
+                  style={{ background: 'linear-gradient(135deg, hsl(272 90% 55%), hsl(280 80% 65%))' }}>
+                  PRO
+                </span>
+              )}
+            </div>
             <p className="text-primary text-sm font-medium">{username}</p>
           </div>
           <div className="text-right shrink-0">
@@ -377,6 +385,49 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
             <div className="text-2xl font-black text-primary">{level}</div>
           </div>
         </motion.div>
+
+        {/* Streak card */}
+        {engagement && engagement.currentStreak > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mb-4 flex items-center gap-3 p-3 rounded-2xl border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-red-500/10"
+          >
+            <div className="size-12 rounded-xl flex items-center justify-center text-2xl bg-orange-500/20">🔥</div>
+            <div className="flex-1">
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Серия дней</p>
+              <p className="text-xl font-black">
+                {engagement.currentStreak} {engagement.currentStreak === 1 ? 'день' : engagement.currentStreak < 5 ? 'дня' : 'дней'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Рекорд: {engagement.longestStreak} • Всего: {engagement.totalDays}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Pro CTA / status */}
+        {!isPro && onOpenPaywall && (
+          <motion.button
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            transition={{ delay: 0.08 }}
+            onClick={onOpenPaywall}
+            className="w-full mb-4 p-3 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition-transform border"
+            style={{ background: 'linear-gradient(135deg, hsl(272 90% 55% / 0.12), hsl(280 80% 65% / 0.12))', borderColor: 'hsl(272 90% 55% / 0.3)' }}
+          >
+            <div className="size-10 rounded-xl flex items-center justify-center text-xl"
+              style={{ background: 'linear-gradient(135deg, hsl(272 90% 55%), hsl(280 80% 65%))' }}>🌟</div>
+            <div className="flex-1 text-left">
+              <p className="font-bold text-sm">Получи Cinemate Pro</p>
+              <p className="text-[11px] text-muted-foreground">Безлимит подборов и больше</p>
+            </div>
+            <span className="material-symbols-outlined text-primary">chevron_right</span>
+          </motion.button>
+        )}
+        {isPro && proExpiresAt && (
+          <div className="mb-4 p-3 rounded-2xl border border-primary/30 bg-primary/10 text-center">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider">🌟 Pro активен</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">До {proExpiresAt.toLocaleDateString('ru-RU')}</p>
+          </div>
+        )}
 
         {/* Level progress */}
         <motion.div
