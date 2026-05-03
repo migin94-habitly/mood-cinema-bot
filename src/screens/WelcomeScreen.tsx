@@ -16,9 +16,25 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart }) => {
           src={logo} 
           alt="Movie Mood" 
           className="size-24 mb-6"
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15, duration: 0.8 }}
+          initial={{ scale: 0, rotate: -180, opacity: 0 }}
+          animate={{
+            scale: [1, 1.08, 1],
+            rotate: [0, -6, 6, 0],
+            y: [0, -6, 0],
+            opacity: 1,
+            filter: [
+              'drop-shadow(0 0 0px hsla(272,90%,55%,0))',
+              'drop-shadow(0 0 24px hsla(272,90%,55%,0.55))',
+              'drop-shadow(0 0 0px hsla(272,90%,55%,0))',
+            ],
+          }}
+          transition={{
+            scale: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
+            rotate: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
+            y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
+            filter: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
+            opacity: { duration: 0.6 },
+          }}
         />
         <h2 className="text-4xl font-bold leading-tight mb-4">
           Найди <span className="text-primary">Идеальный</span> Фильм

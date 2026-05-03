@@ -71,9 +71,23 @@ export const AIProcessingScreen: React.FC<Props> = ({ mood }) => {
         src={logo} 
         alt="Movie Mood" 
         className="size-24 mb-4"
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', duration: 0.8 }}
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{
+          scale: [1, 1.1, 1],
+          rotate: 360,
+          opacity: 1,
+          filter: [
+            'drop-shadow(0 0 0px hsla(272,90%,55%,0))',
+            'drop-shadow(0 0 22px hsla(272,90%,55%,0.7))',
+            'drop-shadow(0 0 0px hsla(272,90%,55%,0))',
+          ],
+        }}
+        transition={{
+          rotate: { duration: 6, repeat: Infinity, ease: 'linear' },
+          scale: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' },
+          filter: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' },
+          opacity: { duration: 0.5 },
+        }}
       />
       <div className="bg-primary/20 border border-primary/40 px-4 py-1.5 rounded-full mb-6 flex items-center gap-2">
         <span className="material-symbols-outlined text-primary text-base">auto_awesome</span>
