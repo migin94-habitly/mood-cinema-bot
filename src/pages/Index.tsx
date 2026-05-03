@@ -13,7 +13,7 @@ import { DiscoverySkeleton } from '@/components/Skeletons';
 import { getMovieRecommendations, getRecentlyRecommended, saveRecommendationHistory } from '@/services/movieService';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { usePersistence, getUserId } from '@/hooks/usePersistence';
-import { trackEvent } from '@/services/analyticsService';
+import { trackEvent, identifyUser } from '@/services/analyticsService';
 import { trackMoodUsage, incrementDailyUsage } from '@/services/engagementService';
 import { useEngagement } from '@/hooks/useEngagement';
 import { FREE_DAILY_LIMIT } from '@/services/proService';
@@ -61,6 +61,8 @@ const Index: React.FC = () => {
 
   useEffect(() => {
     trackEvent('session_start');
+    trackEvent('app_open');
+    identifyUser();
     const tg = getTelegramWebApp();
     if (!tg) return;
     tg.ready();
@@ -90,6 +92,7 @@ const Index: React.FC = () => {
 
   const navigateTo = (screen: Screen) => {
     haptic.light();
+    trackEvent('screen_view', { screen });
     setState(prev => ({ ...prev, currentScreen: screen }));
   };
 
@@ -99,6 +102,7 @@ const Index: React.FC = () => {
     trackMoodUsage(mood);
     // Free limit check
     if (!pro.isPro && (engagementStats?.todayUsage ?? 0) >= FREE_DAILY_LIMIT) {
+      trackEvent('free_limit_hit', { limit: FREE_DAILY_LIMIT });
       setPaywallReason(`Дневной лимит ${FREE_DAILY_LIMIT} подборов исчерпан. Открой безлимит с Pro.`);
       setState(prev => ({ ...prev, currentScreen: 'PAYWALL' }));
       return;
@@ -114,6 +118,7 @@ const Index: React.FC = () => {
     if (movies.length > 0) {
       await saveRecommendationHistory(userId, movies);
       incrementDailyUsage().then(() => refreshEngagement());
+      trackEvent('recommendations_loaded', { count: movies.length, mood, type, genre });
     }
     haptic.success();
     setState(prev => ({

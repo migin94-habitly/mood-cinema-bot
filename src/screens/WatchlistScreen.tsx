@@ -4,6 +4,7 @@ import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
 import { AnimatePresence, motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { haptic } from '@/lib/telegram';
 import { trackCinemaClick, markWatched, unmarkWatched } from '@/services/engagementService';
+import { trackEvent } from '@/services/analyticsService';
 
 interface Props {
   movies: Movie[];
@@ -61,7 +62,16 @@ const SwipeableCard: React.FC<{
         whileTap={{ cursor: 'grabbing' }}
       >
         <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-border">
-          <img src={movie.posterUrl} className="w-full h-full object-cover" alt={movie.title} draggable={false} />
+          <img
+            src={movie.posterUrl}
+            className="w-full h-full object-cover bg-muted"
+            alt={movie.title}
+            draggable={false}
+            loading="lazy"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = `https://placehold.co/400x600/1a1a1a/9333ea/png?text=${encodeURIComponent(movie.title.slice(0, 30))}`;
+            }}
+          />
           <div className="absolute top-2 right-2 size-7 glass rounded-full flex items-center justify-center text-primary">
             <span className="material-symbols-outlined text-sm fill-1">favorite</span>
           </div>
@@ -84,7 +94,11 @@ const SwipeableCard: React.FC<{
         </div>
         {movie.ticketonUrl ? (
           <button
-            onClick={() => { trackCinemaClick(movie.title, movie.ticketonUrl!); window.open(movie.ticketonUrl, '_blank'); }}
+            onClick={() => {
+              trackCinemaClick(movie.title, movie.ticketonUrl!);
+              trackEvent('cinema_session_open', { title: movie.title, url: movie.ticketonUrl, source: 'watchlist' });
+              window.open(movie.ticketonUrl, '_blank');
+            }}
             className="mt-1 w-full py-2 bg-accent text-accent-foreground text-[11px] font-bold rounded-lg shadow-lg shadow-accent/20 flex items-center justify-center gap-1"
           >
             <span className="text-sm">🎬</span>

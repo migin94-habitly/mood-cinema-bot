@@ -5,6 +5,10 @@ import { haptic } from '@/lib/telegram';
 import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
 import { MOODS } from '@/constants/moods';
 import { trackCinemaClick } from '@/services/engagementService';
+import { trackEvent } from '@/services/analyticsService';
+
+const POSTER_FALLBACK = (title: string) =>
+  `https://placehold.co/400x600/1a1a1a/9333ea/png?text=${encodeURIComponent((title || 'Movie').slice(0, 30))}&font=montserrat`;
 
 export interface DiscoveryFilters {
   mood: MoodType;
@@ -73,7 +77,13 @@ const SwipeCard: React.FC<{
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
     >
       <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-2xl bg-surface">
-        <img src={movie.posterUrl} className="w-full h-full object-cover" alt={movie.title} />
+        <img
+          src={movie.posterUrl}
+          className="w-full h-full object-cover bg-muted"
+          alt={movie.title}
+          loading="eager"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = POSTER_FALLBACK(movie.title); }}
+        />
         
         <motion.div 
           className="absolute inset-0 bg-success/20 rounded-2xl flex items-center justify-center z-30 pointer-events-none"
@@ -143,7 +153,12 @@ const SwipeCard: React.FC<{
             </p>
             {movie.ticketonUrl && (
               <button
-                onClick={(e) => { e.stopPropagation(); trackCinemaClick(movie.title, movie.ticketonUrl!); window.open(movie.ticketonUrl, '_blank'); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  trackCinemaClick(movie.title, movie.ticketonUrl!);
+                  trackEvent('cinema_session_open', { title: movie.title, url: movie.ticketonUrl });
+                  window.open(movie.ticketonUrl, '_blank');
+                }}
                 className="w-full py-2.5 bg-accent text-accent-foreground text-xs font-bold rounded-lg flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
               >
                 <span className="text-base">🎬</span>
@@ -420,7 +435,13 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
           <div className="relative w-full max-w-[400px] aspect-[2/3]">
             {nextMovie && (
               <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-xl bg-surface scale-[0.92] opacity-50">
-                <img src={nextMovie.posterUrl} className="w-full h-full object-cover" alt={nextMovie.title} />
+                <img
+                  src={nextMovie.posterUrl}
+                  className="w-full h-full object-cover bg-muted"
+                  alt={nextMovie.title}
+                  loading="lazy"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = POSTER_FALLBACK(nextMovie.title); }}
+                />
               </div>
             )}
             <AnimatePresence mode="popLayout">
