@@ -3,6 +3,7 @@ import { Screen } from '@/types/movie';
 import { getTelegramWebApp, haptic } from '@/lib/telegram';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { EngagementStats } from '@/services/engagementService';
+import { fetchNotificationPrefs, upsertNotificationPrefs, NotificationPrefs } from '@/services/notificationService';
 
 interface Props {
   watchlistCount: number;
@@ -292,6 +293,28 @@ const CelebrationOverlay: React.FC<{ achievement: Achievement; onDone: () => voi
   );
 };
 
+const NotifRow: React.FC<{ icon: string; title: string; desc: string; checked: boolean; onToggle: () => void }> = ({ icon, title, desc, checked, onToggle }) => (
+  <button
+    onClick={onToggle}
+    className="w-full flex items-center gap-3 px-4 py-3 active:bg-primary/10 transition-colors text-left"
+  >
+    <div className="size-9 rounded-lg bg-surface/60 flex items-center justify-center text-base shrink-0">{icon}</div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-bold">{title}</p>
+      <p className="text-[11px] text-muted-foreground truncate">{desc}</p>
+    </div>
+    <div
+      className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${checked ? 'bg-primary' : 'bg-muted'}`}
+    >
+      <motion.div
+        className="absolute top-0.5 size-5 rounded-full bg-white shadow"
+        animate={{ left: checked ? 18 : 2 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      />
+    </div>
+  </button>
+);
+
 export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, watchedCount, engagement, isPro, proExpiresAt, onNavigate, onOpenPaywall }) => {
   const tgUser = useMemo(() => {
     const tg = getTelegramWebApp();
@@ -341,6 +364,22 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
   }, []);
 
   const handleCelebrationDone = useCallback(() => setCelebratingAch(null), []);
+
+  // Notification preferences (Pro)
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  useEffect(() => {
+    if (!isPro) return;
+    fetchNotificationPrefs().then(setPrefs);
+  }, [isPro]);
+  const togglePref = useCallback(async (key: 'cinemaAlerts' | 'weeklyDigest') => {
+    haptic.selection();
+    setPrefs((prev) => {
+      const base = prev ?? { cinemaAlerts: true, weeklyDigest: true, chatId: null };
+      const next = { ...base, [key]: !base[key] };
+      upsertNotificationPrefs(next);
+      return next;
+    });
+  }, []);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-y-auto">
@@ -496,6 +535,34 @@ export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, wat
             Новый подбор
           </button>
         </motion.div>
+
+        {/* Pro Notifications */}
+        {isPro && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22 }}
+            className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 overflow-hidden"
+          >
+            <div className="px-4 py-3 border-b border-primary/10 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">notifications_active</span>
+              <h3 className="text-sm font-bold flex-1">Уведомления Pro</h3>
+            </div>
+            <NotifRow
+              icon="🎬"
+              title="Новые сеансы в кино"
+              desc="Когда фильм из шортлиста выходит в прокат в Алматы"
+              checked={prefs?.cinemaAlerts ?? true}
+              onToggle={() => togglePref('cinemaAlerts')}
+            />
+            <NotifRow
+              icon="📬"
+              title="Еженедельный дайджест"
+              desc="Топ подборок и новинок раз в неделю"
+              checked={prefs?.weeklyDigest ?? true}
+              onToggle={() => togglePref('weeklyDigest')}
+            />
+          </motion.div>
+        )}
 
         {/* Achievements */}
         <motion.div
