@@ -293,6 +293,28 @@ const CelebrationOverlay: React.FC<{ achievement: Achievement; onDone: () => voi
   );
 };
 
+const NotifRow: React.FC<{ icon: string; title: string; desc: string; checked: boolean; onToggle: () => void }> = ({ icon, title, desc, checked, onToggle }) => (
+  <button
+    onClick={onToggle}
+    className="w-full flex items-center gap-3 px-4 py-3 active:bg-primary/10 transition-colors text-left"
+  >
+    <div className="size-9 rounded-lg bg-surface/60 flex items-center justify-center text-base shrink-0">{icon}</div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-bold">{title}</p>
+      <p className="text-[11px] text-muted-foreground truncate">{desc}</p>
+    </div>
+    <div
+      className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${checked ? 'bg-primary' : 'bg-muted'}`}
+    >
+      <motion.div
+        className="absolute top-0.5 size-5 rounded-full bg-white shadow"
+        animate={{ left: checked ? 18 : 2 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      />
+    </div>
+  </button>
+);
+
 export const ProfileScreen: React.FC<Props> = ({ watchlistCount, swipeCount, watchedCount, engagement, isPro, proExpiresAt, onNavigate, onOpenPaywall }) => {
   const tgUser = useMemo(() => {
     const tg = getTelegramWebApp();
