@@ -42,16 +42,62 @@ async function getCinemaMoviesFromDB(city: string): Promise<CinemaMovie[]> {
   return data || [];
 }
 
-async function searchTmdbPoster(title: string, year: number, apiKey: string): Promise<string | null> {
+async function tmdbQuery(path: string, params: Record<string, string>, apiKey: string) {
+  const qs = new URLSearchParams({ api_key: apiKey, ...params }).toString();
   try {
-    const url = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(title)}&year=${year}&language=ru-RU`;
-    const res = await fetch(url);
+    const res = await fetch(`https://api.themoviedb.org/3${path}?${qs}`);
     if (!res.ok) return null;
-    const data = await res.json();
-    const result = data.results?.[0];
-    if (result?.poster_path) return `https://image.tmdb.org/t/p/w500${result.poster_path}`;
-    return null;
+    return await res.json();
   } catch { return null; }
+}
+
+function pickPoster(results: any[]): string | null {
+  if (!Array.isArray(results)) return null;
+  // Prefer entries that actually have a poster, sorted by popularity
+  const withPoster = results.filter(r => r?.poster_path);
+  withPoster.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+  const r = withPoster[0];
+  return r?.poster_path ? `https://image.tmdb.org/t/p/w780${r.poster_path}` : null;
+}
+
+async function searchTmdbPoster(
+  titleRu: string,
+  titleOriginal: string,
+  year: number,
+  type: string | undefined,
+  apiKey: string,
+): Promise<string | null> {
+  const isSeries = type === 'series';
+  const queries: Array<[string, Record<string, string>]> = [];
+  const orig = (titleOriginal || '').trim();
+  const ru = (titleRu || '').trim();
+
+  // 1) Original title + year on the right endpoint
+  if (orig) {
+    queries.push([
+      isSeries ? '/search/tv' : '/search/movie',
+      { query: orig, language: 'en-US', ...(year ? { [isSeries ? 'first_air_date_year' : 'year']: String(year) } : {}) },
+    ]);
+    // 2) Original title without year
+    queries.push([isSeries ? '/search/tv' : '/search/movie', { query: orig, language: 'en-US' }]);
+    // 3) Multi search original
+    queries.push(['/search/multi', { query: orig, language: 'en-US' }]);
+  }
+  // 4) RU title with year
+  if (ru) {
+    queries.push([
+      isSeries ? '/search/tv' : '/search/movie',
+      { query: ru, language: 'ru-RU', ...(year ? { [isSeries ? 'first_air_date_year' : 'year']: String(year) } : {}) },
+    ]);
+    queries.push(['/search/multi', { query: ru, language: 'ru-RU' }]);
+  }
+
+  for (const [path, params] of queries) {
+    const data = await tmdbQuery(path, params, apiKey);
+    const poster = pickPoster(data?.results || []);
+    if (poster) return poster;
+  }
+  return null;
 }
 
 async function searchTmdbPerson(name: string, apiKey: string): Promise<string | null> {
@@ -68,7 +114,8 @@ async function searchTmdbPerson(name: string, apiKey: string): Promise<string | 
 
 function fallbackPoster(title: string): string {
   const safe = encodeURIComponent((title || 'Movie').slice(0, 40));
-  return `https://placehold.co/400x600/1a1a1a/9333ea/png?text=${safe}&font=montserrat`;
+  // Brand-styled placeholder (dark + purple) that matches the app theme
+  return `https://placehold.co/600x900/0F0A1F/A855F7/png?text=${safe}&font=montserrat`;
 }
 
 serve(async (req) => {
@@ -226,7 +273,7 @@ posterUrl="" — будет подставлен сервером.${excludeConst
     if (TMDB_API_KEY && movies.length > 0) {
       const posters = await Promise.all(
         movies.map((m: any) =>
-          searchTmdbPoster(m.titleOriginal || m.title, m.year, TMDB_API_KEY).catch(() => null)
+          searchTmdbPoster(m.title, m.titleOriginal, m.year, m.type, TMDB_API_KEY).catch(() => null)
         )
       );
       movies = movies.map((m: any, i: number) => ({
