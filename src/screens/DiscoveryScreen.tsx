@@ -8,7 +8,7 @@ import { trackCinemaClick } from '@/services/engagementService';
 import { trackEvent } from '@/services/analyticsService';
 
 const POSTER_FALLBACK = (title: string) =>
-  `https://placehold.co/400x600/1a1a1a/9333ea/png?text=${encodeURIComponent((title || 'Movie').slice(0, 30))}&font=montserrat`;
+  `https://placehold.co/600x900/0F0A1F/A855F7/png?text=${encodeURIComponent((title || 'Movie').slice(0, 30))}&font=montserrat`;
 
 export interface DiscoveryFilters {
   mood: MoodType;
