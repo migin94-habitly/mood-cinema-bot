@@ -65,6 +65,11 @@ async function searchTmdbPerson(name: string, apiKey: string): Promise<string | 
   } catch { return null; }
 }
 
+function fallbackPoster(title: string): string {
+  const safe = encodeURIComponent((title || 'Movie').slice(0, 40));
+  return `https://placehold.co/400x600/1a1a1a/9333ea/png?text=${safe}&font=montserrat`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -104,31 +109,16 @@ serve(async (req) => {
 После них добавь рекомендации из стриминговых сервисов до общего 12.`;
     }
 
-    const prompt = `Ты — эксперт по кино и сериалам.
-
-ЗАДАЧА: Подбери 12 РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}".
-Контекст: ${moodContext}
-
-ФИЛЬТРЫ:
-- Тип: ${typeConstraint}${genreConstraint}
+    const prompt = `Подбери 10 РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}" (${moodContext}).
+Тип: ${typeConstraint}${genreConstraint}
 ${cinemaContext}
 
-ТРЕБОВАНИЯ:
-1. ТОЛЬКО РЕАЛЬНО СУЩЕСТВУЮЩИЕ фильмы/сериалы
-2. Приоритет: 2022-2026, можно 1-2 классики
-3. Рейтинги РЕАЛЬНЫЕ (IMDB и Кинопоиск)
-4. Фильмы из кинотеатров (если есть) ПЕРВЫМИ
+Правила: только реальные тайтлы, приоритет 2022-2026, реальные рейтинги IMDB/Кинопоиск.
+Кинотеатральные — первыми.
+Платформы: Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+, HDRezka, Кинопоиск HD, Okko, IVI, Wink, Кинотеатр.
 
-ПЛАТФОРМЫ: Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+, HDRezka, Кинопоиск HD, Okko, IVI, Wink, Hulu, Paramount+, Кинотеатр
-
-ДЛЯ КАЖДОГО:
-- title, titleOriginal, year, duration, ratingImdb (1-10), ratingKinopoisk (1-10)
-- genres (русский), description (2-3 предложения), platform, type ("movie"/"series")
-- actors: 2-3 актёра (name, imageUrl)
-- ticketonUrl: ссылка ТОЛЬКО если из списка кинотеатров, иначе null
-
-posterUrl: https://picsum.photos/seed/{titleOriginal_no_spaces}/400/600
-imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/100${excludeConstraint}`;
+Для каждого: id, title, titleOriginal, year, duration, ratingImdb, ratingKinopoisk, genres (рус), description (1-2 предложения), platform, type, actors (2 актёра: name, imageUrl=""), ticketonUrl (только из списка кинотеатров).
+posterUrl="" — будет подставлен сервером.${excludeConstraint}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -137,7 +127,7 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: "Ты — кинокритик. Рекомендуешь только реальные фильмы с реальными рейтингами." },
           { role: "user", content: prompt }
@@ -146,7 +136,7 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
           type: "function",
           function: {
             name: "recommend_movies",
-            description: "Return 12 real movie/series recommendations. Cinema movies MUST come first.",
+            description: "Return 10 real movie/series recommendations. Cinema movies MUST come first.",
             parameters: {
               type: "object",
               properties: {
@@ -228,20 +218,20 @@ imageUrl актёров: https://picsum.photos/seed/{actor_name_no_spaces}/100/1
     movies = [...cinemaResults, ...streamingResults];
     console.log(`Results: ${cinemaResults.length} cinema + ${streamingResults.length} streaming = ${movies.length} total (DB had ${cinemaMovies.length} movies)`);
 
-    // Enrich with TMDB
+    // Enrich posters in parallel (skip actor photos for speed — UI loads them on demand in details)
     if (TMDB_API_KEY && movies.length > 0) {
-      movies = await Promise.all(movies.map(async (movie: any) => {
-        const posterUrl = await searchTmdbPoster(movie.titleOriginal || movie.title, movie.year, TMDB_API_KEY);
-        if (posterUrl) movie.posterUrl = posterUrl;
-        if (movie.actors?.length) {
-          movie.actors = await Promise.all(movie.actors.map(async (a: any) => {
-            const photo = await searchTmdbPerson(a.name, TMDB_API_KEY);
-            if (photo) a.imageUrl = photo;
-            return a;
-          }));
-        }
-        return movie;
+      const posters = await Promise.all(
+        movies.map((m: any) =>
+          searchTmdbPoster(m.titleOriginal || m.title, m.year, TMDB_API_KEY).catch(() => null)
+        )
+      );
+      movies = movies.map((m: any, i: number) => ({
+        ...m,
+        posterUrl: posters[i] || fallbackPoster(m.title),
+        actors: (m.actors || []).map((a: any) => ({ ...a, imageUrl: a.imageUrl || fallbackPoster(a.name) })),
       }));
+    } else {
+      movies = movies.map((m: any) => ({ ...m, posterUrl: m.posterUrl || fallbackPoster(m.title) }));
     }
 
     return new Response(JSON.stringify({
