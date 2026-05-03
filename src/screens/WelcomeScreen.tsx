@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import logo from '@/assets/logo.png';
+import { AnimatedClapperboard } from '@/components/AnimatedClapperboard';
 
 interface Props {
   onStart: () => void;
@@ -12,30 +12,7 @@ export const WelcomeScreen: React.FC<Props> = ({ onStart }) => {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_hsla(272,90%,55%,0.15),_transparent_60%)]" />
       
       <div className="relative z-10 flex flex-col items-center text-center mt-20">
-        <motion.img 
-          src={logo} 
-          alt="Movie Mood" 
-          className="size-24 mb-6"
-          initial={{ scale: 0, rotate: -180, opacity: 0 }}
-          animate={{
-            scale: [1, 1.08, 1],
-            rotate: [0, -6, 6, 0],
-            y: [0, -6, 0],
-            opacity: 1,
-            filter: [
-              'drop-shadow(0 0 0px hsla(272,90%,55%,0))',
-              'drop-shadow(0 0 24px hsla(272,90%,55%,0.55))',
-              'drop-shadow(0 0 0px hsla(272,90%,55%,0))',
-            ],
-          }}
-          transition={{
-            scale: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
-            rotate: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
-            y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
-            filter: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
-            opacity: { duration: 0.6 },
-          }}
-        />
+        <AnimatedClapperboard size={104} className="mb-6" duration={2.6} />
         <h2 className="text-4xl font-bold leading-tight mb-4">
           Найди <span className="text-primary">Идеальный</span> Фильм
         </h2>
