@@ -37,7 +37,15 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-y-auto">
       <div className="relative h-[50vh] shrink-0">
-        <img src={movie.posterUrl} className="w-full h-full object-cover" alt={movie.title} />
+        <img
+          src={movie.posterUrl}
+          className="w-full h-full object-cover"
+          alt={movie.title}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src =
+              `https://placehold.co/600x900/0F0A1F/A855F7/png?text=${encodeURIComponent(movie.title.slice(0, 30))}&font=montserrat`;
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
         
         <div className="absolute top-8 inset-x-6 flex items-center justify-between z-20">
