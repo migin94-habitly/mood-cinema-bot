@@ -173,6 +173,63 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          cinema_alerts: boolean
+          created_at: string
+          id: string
+          telegram_chat_id: string | null
+          telegram_user_id: string
+          updated_at: string
+          weekly_digest: boolean
+        }
+        Insert: {
+          cinema_alerts?: boolean
+          created_at?: string
+          id?: string
+          telegram_chat_id?: string | null
+          telegram_user_id: string
+          updated_at?: string
+          weekly_digest?: boolean
+        }
+        Update: {
+          cinema_alerts?: boolean
+          created_at?: string
+          id?: string
+          telegram_chat_id?: string | null
+          telegram_user_id?: string
+          updated_at?: string
+          weekly_digest?: boolean
+        }
+        Relationships: []
+      }
+      notifications_log: {
+        Row: {
+          id: string
+          kind: string
+          payload: Json | null
+          ref_key: string
+          sent_at: string
+          telegram_user_id: string
+        }
+        Insert: {
+          id?: string
+          kind: string
+          payload?: Json | null
+          ref_key: string
+          sent_at?: string
+          telegram_user_id: string
+        }
+        Update: {
+          id?: string
+          kind?: string
+          payload?: Json | null
+          ref_key?: string
+          sent_at?: string
+          telegram_user_id?: string
+        }
+        Relationships: []
+      }
       recommendation_history: {
         Row: {
           id: string
