@@ -199,7 +199,16 @@ serve(async (req) => {
     const moodContext = MOOD_CONTEXT[mood] || mood;
 
     // Load cinema movies from database (skip for AI-only / non-KZ users)
-    const cinemaMovies = aiOnly ? [] : await getCinemaMoviesFromDB(cityKey);
+    const allCinemaMovies = aiOnly ? [] : await getCinemaMoviesFromDB(cityKey);
+
+    // Filter cinema movies by current mood via AI (so that, e.g., horror cinema doesn't show for Romantic mood)
+    let cinemaMovies: CinemaMovie[] = allCinemaMovies;
+    if (allCinemaMovies.length > 0 && type !== 'series') {
+      const matched = await filterCinemaByMood(allCinemaMovies, mood, MOOD_CONTEXT[mood] || mood, LOVABLE_API_KEY);
+      const filtered = allCinemaMovies.filter(m => matched.has(m.title.toLowerCase().trim()));
+      cinemaMovies = filtered.length > 0 ? filtered : [];
+      console.log(`Cinema after mood filter: ${cinemaMovies.length}/${allCinemaMovies.length} for mood=${mood}`);
+    }
 
     let typeConstraint = "Микс из 12 фильмов и 12 сериалов (всего 24). ОБЯЗАТЕЛЬНО включи минимум 12 сериалов с type='series'.";
     let totalCount = 24;
