@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { MoodType } from '@/types/movie';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AnimatedClapperboard } from '@/components/AnimatedClapperboard';
-import { supabase } from '@/integrations/supabase/client';
-
 interface Props {
   mood: MoodType;
 }
