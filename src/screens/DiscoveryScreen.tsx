@@ -11,6 +11,15 @@ import { AnimatedClapperboard } from '@/components/AnimatedClapperboard';
 const POSTER_FALLBACK = (title: string) =>
   `https://placehold.co/600x900/0F0A1F/A855F7/png?text=${encodeURIComponent((title || 'Movie').slice(0, 30))}&font=montserrat`;
 
+const addPosterCacheBust = (url?: string) => {
+  if (!url) return url;
+  if (url.includes('api-gw.ticketon.kz')) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}fresh=${new Date().toISOString().slice(0, 10)}`;
+  }
+  return url;
+};
+
 const LOADING_MESSAGES = [
   'Анализируем ваше настроение…',
   'Перебираем тысячи постеров…',
@@ -88,10 +97,11 @@ const SwipeCard: React.FC<{
     >
       <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-2xl bg-surface">
         <img
-          src={movie.posterUrl}
+          src={addPosterCacheBust(movie.posterUrl)}
           className="w-full h-full object-cover bg-muted"
           alt={movie.title}
           loading="eager"
+          referrerPolicy="no-referrer"
           onError={(e) => { (e.currentTarget as HTMLImageElement).src = POSTER_FALLBACK(movie.title); }}
         />
         
@@ -212,7 +222,8 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
     movies.slice(0, 4).forEach(m => {
       if (m.posterUrl) {
         const img = new Image();
-        img.src = m.posterUrl;
+        img.referrerPolicy = 'no-referrer';
+        img.src = addPosterCacheBust(m.posterUrl) || m.posterUrl;
       }
     });
   }, [movies]);
@@ -493,10 +504,11 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
             {nextMovie && (
               <div className="absolute inset-0 rounded-2xl overflow-hidden border border-border shadow-xl bg-surface scale-[0.92] opacity-50">
                 <img
-                  src={nextMovie.posterUrl}
+                  src={addPosterCacheBust(nextMovie.posterUrl)}
                   className="w-full h-full object-cover bg-muted"
                   alt={nextMovie.title}
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).src = POSTER_FALLBACK(nextMovie.title); }}
                 />
               </div>

@@ -16,6 +16,15 @@ const WATCH_SOURCES = [
   { name: 'ZetFlix', url: 'https://zet-flix.online', icon: '🎥' },
 ];
 
+const addPosterCacheBust = (url?: string) => {
+  if (!url) return url;
+  if (url.includes('api-gw.ticketon.kz')) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}fresh=${new Date().toISOString().slice(0, 10)}`;
+  }
+  return url;
+};
+
 export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, onToggleWatchlist }) => {
   const [showSourcePicker, setShowSourcePicker] = useState(false);
 
@@ -80,9 +89,10 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
 
       <div className="relative h-[50vh] shrink-0">
         <img
-          src={movie.posterUrl}
+          src={addPosterCacheBust(movie.posterUrl)}
           className="w-full h-full object-cover"
           alt={movie.title}
+          referrerPolicy="no-referrer"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src =
               `https://placehold.co/600x900/0F0A1F/A855F7/png?text=${encodeURIComponent(movie.title.slice(0, 30))}&font=montserrat`;

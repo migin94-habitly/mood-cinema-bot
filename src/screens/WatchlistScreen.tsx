@@ -18,6 +18,15 @@ const WATCH_SOURCES = [
   { name: 'ZetFlix', url: 'https://zet-flix.online', icon: '🎥' },
 ];
 
+const addPosterCacheBust = (url?: string) => {
+  if (!url) return url;
+  if (url.includes('api-gw.ticketon.kz')) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}fresh=${new Date().toISOString().slice(0, 10)}`;
+  }
+  return url;
+};
+
 const SWIPE_THRESHOLD = -80;
 
 const SwipeableCard: React.FC<{
@@ -63,11 +72,12 @@ const SwipeableCard: React.FC<{
       >
         <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-lg border border-border">
           <img
-            src={movie.posterUrl}
+            src={addPosterCacheBust(movie.posterUrl)}
             className="w-full h-full object-cover bg-muted"
             alt={movie.title}
             draggable={false}
             loading="lazy"
+            referrerPolicy="no-referrer"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = `https://placehold.co/400x600/1a1a1a/9333ea/png?text=${encodeURIComponent(movie.title.slice(0, 30))}`;
             }}
