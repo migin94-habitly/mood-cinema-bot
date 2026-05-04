@@ -44,8 +44,12 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
   };
 
   const handleWatch = (source: typeof WATCH_SOURCES[0]) => {
+    haptic.medium();
     const query = encodeURIComponent(movie.titleOriginal || movie.title);
-    window.open(`${source.url}/search/?q=${query}`, '_blank');
+    const url = `${source.url}/search/?q=${query}`;
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openLink) { try { tg.openLink(url, { try_instant_view: false }); setShowSourcePicker(false); return; } catch {} }
+    window.open(url, '_blank', 'noopener,noreferrer');
     setShowSourcePicker(false);
   };
 
@@ -132,13 +136,22 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 glass border-t border-border flex flex-col gap-3">
+      <div
+        className="fixed bottom-0 left-0 right-0 p-6 glass border-t border-border flex flex-col gap-3 z-40"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
+      >
         {movie.ticketonUrl && (
-          <button 
+          <button
+            type="button"
             onClick={async () => {
-              const { trackCinemaClick } = await import('@/services/engagementService');
-              trackCinemaClick(movie.title, movie.ticketonUrl!);
-              window.open(movie.ticketonUrl, '_blank');
+              haptic.medium();
+              try {
+                const { trackCinemaClick } = await import('@/services/engagementService');
+                trackCinemaClick(movie.title, movie.ticketonUrl!);
+              } catch {}
+              const tg = (window as any).Telegram?.WebApp;
+              if (tg?.openLink) { try { tg.openLink(movie.ticketonUrl!, { try_instant_view: false }); return; } catch {} }
+              window.open(movie.ticketonUrl!, '_blank', 'noopener,noreferrer');
             }}
             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all border-2 border-accent"
           >
@@ -147,8 +160,9 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
             <span className="material-symbols-outlined text-[18px]">open_in_new</span>
           </button>
         )}
-        <button 
-          onClick={onToggleWatchlist}
+        <button
+          type="button"
+          onClick={() => { haptic.medium(); onToggleWatchlist(); }}
           className={`w-full font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] border-2 ${
             isInWatchlist 
             ? 'border-primary/40 bg-primary/10 text-primary' 
@@ -162,8 +176,9 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
             {isInWatchlist ? 'Удалить из списка' : 'В список просмотра'}
           </span>
         </button>
-        <button 
-          onClick={() => setShowSourcePicker(true)}
+        <button
+          type="button"
+          onClick={() => { haptic.light(); setShowSourcePicker(true); }}
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 rounded-xl shadow-[0_8px_30px_hsla(272,90%,55%,0.3)] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
         >
           <span className="text-base">Смотреть фильм</span>
