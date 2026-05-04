@@ -78,35 +78,14 @@ export const AIProcessingScreen: React.FC<Props> = ({ mood }) => {
   const [posters, setPosters] = useState<Poster[]>(() => loadCachedPosters(mood) || []);
   const fallback = FALLBACK[mood] ?? FALLBACK.Epic;
 
-  // Fetch TMDB posters via edge function (cached). Preload <img> for smooth carousel.
-  useEffect(() => {
-    let cancelled = false;
-    if (loadCachedPosters(mood)) return;
-    (async () => {
-      try {
-        const { data } = await supabase.functions.invoke('tmdb-posters', {
-          body: null,
-          method: 'GET' as any,
-          // pass mood as query via headers fallback: invoke can't add query, so call fetch directly
-        });
-        if (data?.posters?.length) {
-          if (cancelled) return;
-          setPosters(data.posters);
-          saveCachedPosters(mood, data.posters);
-          data.posters.forEach((p: Poster) => { const img = new Image(); img.src = p.poster; });
-        }
-      } catch {/* ignore — fallback shown */}
-    })();
-    return () => { cancelled = true; };
-  }, [mood]);
-
-  // Direct fetch with query string (supabase.functions.invoke doesn't support GET query well).
+  // Fetch TMDB posters via edge function (cached + sessionStorage). Preload imgs for smooth carousel.
   useEffect(() => {
     if (posters.length > 0) return;
     let cancelled = false;
     (async () => {
       try {
-        const url = `${(supabase as any).supabaseUrl || import.meta.env.VITE_SUPABASE_URL}/functions/v1/tmdb-posters?mood=${mood}&limit=12`;
+        const base = import.meta.env.VITE_SUPABASE_URL;
+        const url = `${base}/functions/v1/tmdb-posters?mood=${mood}&limit=12`;
         const res = await fetch(url, {
           headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
         });
