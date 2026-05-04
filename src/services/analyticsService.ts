@@ -14,6 +14,9 @@ export type KeyEvent =
   // Onboarding
   | 'welcome_start'
   | 'mood_select'
+  | 'onboarding_step'
+  | 'onboarding_complete'
+  | 'onboarding_skip'
   // Discovery / swipes
   | 'recommendations_loaded'
   | 'swipe_like'
