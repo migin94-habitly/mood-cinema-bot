@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.validate-telegram]
 verify_jwt = false
+
+[functions.tmdb-posters]
+verify_jwt = false
+
+[functions.scrape-cinema]
+verify_jwt = false

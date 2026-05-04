@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { MoodType } from '@/types/movie';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AnimatedClapperboard } from '@/components/AnimatedClapperboard';
-
 interface Props {
   mood: MoodType;
 }
 
-// Brand-styled mock posters for the loading carousel: emoji + title on themed gradients.
-// No external requests = always render reliably.
-const MOOD_POSTERS: Record<MoodType, Array<{ emoji: string; title: string; gradient: string }>> = {
+type Poster = { title: string; poster: string; year?: string };
+
+// Fallback gradient cards if TMDB fails — never block the UI.
+const FALLBACK: Record<MoodType, Array<{ emoji: string; title: string; gradient: string }>> = {
   Epic: [
     { emoji: '🚀', title: 'Interstellar',  gradient: 'from-indigo-900 via-violet-900 to-black' },
     { emoji: '🏜️', title: 'Dune',          gradient: 'from-amber-900 via-orange-800 to-stone-900' },
@@ -48,10 +48,55 @@ const MOOD_POSTERS: Record<MoodType, Array<{ emoji: string; title: string; gradi
   ],
 };
 
+// In-memory + sessionStorage cache for TMDB posters per mood.
+const memCache = new Map<string, Poster[]>();
+const CACHE_KEY = (mood: string) => `mm_posters_${mood}`;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+function loadCachedPosters(mood: string): Poster[] | null {
+  if (memCache.has(mood)) return memCache.get(mood)!;
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY(mood));
+    if (!raw) return null;
+    const { ts, posters } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL_MS) return null;
+    memCache.set(mood, posters);
+    return posters;
+  } catch { return null; }
+}
+
+function saveCachedPosters(mood: string, posters: Poster[]) {
+  memCache.set(mood, posters);
+  try { sessionStorage.setItem(CACHE_KEY(mood), JSON.stringify({ ts: Date.now(), posters })); } catch {}
+}
+
 export const AIProcessingScreen: React.FC<Props> = ({ mood }) => {
   const [progress, setProgress] = useState(0);
   const [posterIndex, setPosterIndex] = useState(0);
-  const posters = MOOD_POSTERS[mood] ?? MOOD_POSTERS.Epic;
+  const [posters, setPosters] = useState<Poster[]>(() => loadCachedPosters(mood) || []);
+  const fallback = FALLBACK[mood] ?? FALLBACK.Epic;
+
+  // Fetch TMDB posters via edge function (cached + sessionStorage). Preload imgs for smooth carousel.
+  useEffect(() => {
+    if (posters.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const base = import.meta.env.VITE_SUPABASE_URL;
+        const url = `${base}/functions/v1/tmdb-posters?mood=${mood}&limit=12`;
+        const res = await fetch(url, {
+          headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        });
+        const j = await res.json();
+        if (!cancelled && j?.posters?.length) {
+          setPosters(j.posters);
+          saveCachedPosters(mood, j.posters);
+          j.posters.forEach((p: Poster) => { const img = new Image(); img.src = p.poster; });
+        }
+      } catch {/* ignore */}
+    })();
+    return () => { cancelled = true; };
+  }, [mood, posters.length]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -61,11 +106,16 @@ export const AIProcessingScreen: React.FC<Props> = ({ mood }) => {
   }, []);
 
   useEffect(() => {
+    const total = posters.length || fallback.length;
     const timer = setInterval(() => {
-      setPosterIndex(prev => (prev + 1) % posters.length);
-    }, 2000);
+      setPosterIndex(prev => (prev + 1) % total);
+    }, 1400);
     return () => clearInterval(timer);
-  }, [posters.length]);
+  }, [posters.length, fallback.length]);
+
+  const useTmdb = posters.length > 0;
+  const currentTmdb = useTmdb ? posters[posterIndex % posters.length] : null;
+  const currentFb = !useTmdb ? fallback[posterIndex % fallback.length] : null;
 
   return (
     <div className="h-screen w-full flex flex-col items-center justify-center px-6 bg-background text-center">
@@ -96,22 +146,37 @@ export const AIProcessingScreen: React.FC<Props> = ({ mood }) => {
         <div className="absolute inset-0 bg-primary/10 rounded-xl border border-border translate-y-2 scale-95" />
         <div className="absolute inset-0 rounded-xl border border-primary/30 overflow-hidden shadow-[0_8px_30px_hsla(272,90%,55%,0.2)]">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={posterIndex}
-              className={`absolute inset-0 bg-gradient-to-br ${posters[posterIndex].gradient} flex flex-col items-center justify-center gap-3`}
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.5 }}
-            >
-              <span className="text-6xl drop-shadow-2xl">{posters[posterIndex].emoji}</span>
-              <span className="text-sm font-extrabold tracking-tight text-white/95 px-3 text-center">
-                {posters[posterIndex].title}
-              </span>
-            </motion.div>
+            {useTmdb && currentTmdb ? (
+              <motion.img
+                key={`t-${posterIndex}-${currentTmdb.poster}`}
+                src={currentTmdb.poster}
+                alt={currentTmdb.title}
+                className="absolute inset-0 w-full h-full object-cover"
+                initial={{ opacity: 0, scale: 1.05 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.45 }}
+              />
+            ) : (
+              <motion.div
+                key={`f-${posterIndex}`}
+                className={`absolute inset-0 bg-gradient-to-br ${currentFb!.gradient} flex flex-col items-center justify-center gap-3`}
+                initial={{ opacity: 0, scale: 1.05 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.5 }}
+              >
+                <span className="text-6xl drop-shadow-2xl">{currentFb!.emoji}</span>
+                <span className="text-sm font-extrabold tracking-tight text-white/95 px-3 text-center">
+                  {currentFb!.title}
+                </span>
+              </motion.div>
+            )}
           </AnimatePresence>
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent flex items-end justify-center pb-3 pointer-events-none">
-            <p className="text-[10px] font-medium italic text-foreground/80">"Подбираем идеальный вариант..."</p>
+            <p className="text-[10px] font-medium italic text-foreground/80 truncate max-w-[140px]">
+              {useTmdb && currentTmdb ? `«${currentTmdb.title}»` : 'Подбираем идеальный вариант...'}
+            </p>
           </div>
         </div>
       </div>
