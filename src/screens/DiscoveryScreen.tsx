@@ -515,8 +515,8 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
       </main>
 
       <div
-        className="px-6 pt-2 flex items-center justify-center gap-10 shrink-0"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        className="px-6 pt-3 flex items-center justify-center gap-10 shrink-0"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
       >
         <motion.button 
           onClick={handleLocalPass}
