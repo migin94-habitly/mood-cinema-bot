@@ -135,9 +135,13 @@ serve(async (req) => {
     // Load cinema movies from database (skip for AI-only / non-KZ users)
     const cinemaMovies = aiOnly ? [] : await getCinemaMoviesFromDB(cityKey);
 
-    let typeConstraint = "Микс фильмов и сериалов (примерно 7 фильмов + 5 сериалов)";
-    if (type === "movie") typeConstraint = "ТОЛЬКО ФИЛЬМЫ, никаких сериалов. Все результаты должны быть фильмами (type: 'movie').";
-    else if (type === "series") typeConstraint = "ТОЛЬКО СЕРИАЛЫ, никаких фильмов. Все результаты должны быть сериалами (type: 'series').";
+    let typeConstraint = "Микс из 6 фильмов и 6 сериалов (всего 12). ОБЯЗАТЕЛЬНО включи минимум 6 сериалов с type='series'.";
+    let totalCount = 12;
+    if (type === "movie") {
+      typeConstraint = "ТОЛЬКО ФИЛЬМЫ (12 штук), никаких сериалов. Все результаты должны быть фильмами (type: 'movie').";
+    } else if (type === "series") {
+      typeConstraint = "ТОЛЬКО СЕРИАЛЫ (12 штук), никаких фильмов. Все результаты ОБЯЗАТЕЛЬНО должны быть сериалами (type: 'series'). Включи разнообразные жанры: драмы, триллеры, комедии, фантастика, аниме, корейские дорамы, документальные сериалы.";
+    }
 
     let genreConstraint = "";
     if (genre) genreConstraint = `\nОБЯЗАТЕЛЬНЫЙ ЖАНР: Все рекомендации ДОЛЖНЫ относиться к жанру "${genre}".`;
@@ -160,13 +164,14 @@ serve(async (req) => {
 После них добавь рекомендации из стриминговых сервисов до общего 12.`;
     }
 
-    const prompt = `Подбери 10 РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}" (${moodContext}).
+    const prompt = `Подбери ${totalCount} РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}" (${moodContext}).
 Тип: ${typeConstraint}${genreConstraint}
 ${cinemaContext}
 
-Правила: только реальные тайтлы, приоритет 2022-2026, реальные рейтинги IMDB/Кинопоиск.
+Правила: только реальные тайтлы, приоритет 2020-2026, реальные рейтинги IMDB/Кинопоиск (>6.5).
+titleOriginal — ОБЯЗАТЕЛЬНО оригинальное название латиницей (например "Breaking Bad", "Oppenheimer"), без перевода. Это критично для поиска постеров.
 Кинотеатральные — первыми.
-Платформы: Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+, HDRezka, Кинопоиск HD, Okko, IVI, Wink, Кинотеатр.
+Платформы: Netflix, Apple TV+, HBO Max, Amazon Prime Video, Disney+, HDRezka, Кинопоиск HD, Okko, IVI, Wink, Кинотеатр, Hulu, Paramount+.
 
 Для каждого: id, title, titleOriginal, year, duration, ratingImdb, ratingKinopoisk, genres (рус), description (1-2 предложения), platform, type, actors (2 актёра: name, imageUrl=""), ticketonUrl (только из списка кинотеатров).
 posterUrl="" — будет подставлен сервером.${excludeConstraint}`;
@@ -187,7 +192,7 @@ posterUrl="" — будет подставлен сервером.${excludeConst
           type: "function",
           function: {
             name: "recommend_movies",
-            description: "Return 10 real movie/series recommendations. Cinema movies MUST come first.",
+            description: `Return ${totalCount} real movie/series recommendations. Cinema movies MUST come first.`,
             parameters: {
               type: "object",
               properties: {
@@ -276,9 +281,21 @@ posterUrl="" — будет подставлен сервером.${excludeConst
           searchTmdbPoster(m.title, m.titleOriginal, m.year, m.type, TMDB_API_KEY).catch(() => null)
         )
       );
+      // Second pass: for those still missing, try the OPPOSITE type endpoint (AI sometimes mislabels)
+      const retryIdx: number[] = [];
+      posters.forEach((p, i) => { if (!p) retryIdx.push(i); });
+      const retryPosters = await Promise.all(
+        retryIdx.map(i => {
+          const m = movies[i];
+          const flippedType = m.type === 'series' ? 'movie' : 'series';
+          return searchTmdbPoster(m.title, m.titleOriginal, m.year, flippedType, TMDB_API_KEY).catch(() => null);
+        })
+      );
+      retryIdx.forEach((i, k) => { if (retryPosters[k]) posters[i] = retryPosters[k]; });
+
       movies = movies.map((m: any, i: number) => ({
         ...m,
-        posterUrl: posters[i] || fallbackPoster(m.title),
+        posterUrl: posters[i] || fallbackPoster(m.titleOriginal || m.title),
         actors: (m.actors || []).map((a: any) => ({ ...a, imageUrl: a.imageUrl || fallbackPoster(a.name) })),
       }));
     } else {
