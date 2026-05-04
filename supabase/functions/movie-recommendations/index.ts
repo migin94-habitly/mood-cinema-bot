@@ -20,6 +20,7 @@ interface CinemaMovie {
   url: string;
   image_url: string;
   age_rating: string;
+  description?: string;
 }
 
 async function getCinemaMoviesFromDB(city: string): Promise<CinemaMovie[]> {
@@ -29,7 +30,7 @@ async function getCinemaMoviesFromDB(city: string): Promise<CinemaMovie[]> {
   
   const { data, error } = await supabase
     .from("cinema_movies")
-    .select("title, url, image_url, age_rating")
+    .select("title, url, image_url, age_rating, description")
     .eq("city", city)
     .order("scraped_at", { ascending: false });
   
@@ -283,7 +284,9 @@ posterUrl="" — будет подставлен сервером.${excludeConst
           ratingImdb: 0,
           ratingKinopoisk: 0,
           genres: ['В кино'],
-          description: `Сейчас в кинотеатрах. Возраст: ${cm.age_rating || '—'}. Купить билеты на Ticketon.`,
+          description: (cm.description && cm.description.length > 20)
+            ? cm.description
+            : `Сейчас в кинотеатрах. Возраст: ${cm.age_rating || '—'}. Купить билеты на Ticketon.`,
           posterUrl: cm.image_url || '',
           platform: 'Кинотеатр',
           type: 'movie',
