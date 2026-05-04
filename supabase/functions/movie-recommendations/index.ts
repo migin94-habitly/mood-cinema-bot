@@ -157,11 +157,7 @@ serve(async (req) => {
         `- "${m.title}" (возраст: ${m.age_rating || '?'}, ссылка: ${m.url})`
       ).join('\n');
 
-      cinemaContext = `\n\n🎬 СЕЙЧАС В КИНОТЕАТРАХ АЛМАТЫ (${cinemaMovies.length} фильмов):\n${cinemaList}\n
-ВАЖНЕЙШЕЕ ПРАВИЛО: Включи ВСЕ фильмы из кинотеатров, которые подходят под настроение "${mood}" (${moodContext}).
-Для каждого: platform = "Кинотеатр", ticketonUrl = ссылка из списка.
-Фильмы из кинотеатров ДОЛЖНЫ идти ПЕРВЫМИ в массиве movies.
-После них добавь рекомендации из стриминговых сервисов до общего 12.`;
+      cinemaContext = `\n\n🎬 СЕЙЧАС В КИНОТЕАТРАХ (${cinemaMovies.length}) — для контекста, сервер сам добавит их первыми:\n${cinemaList}`;
     }
 
     const prompt = `Подбери ${totalCount} РЕАЛЬНЫХ фильмов/сериалов под настроение "${mood}" (${moodContext}).
@@ -262,6 +258,9 @@ posterUrl="" — будет подставлен сервером.${excludeConst
     }
 
     // Enforce prioritization: cinema first, then streaming
+    const cinemaTitlesSet = new Set(
+      cinemaMovies.map(m => (m.title || '').toLowerCase().trim())
+    );
     const cinemaResults: any[] = [];
     const streamingResults: any[] = [];
 
@@ -269,10 +268,33 @@ posterUrl="" — будет подставлен сервером.${excludeConst
       if (m.ticketonUrl && !m.ticketonUrl.startsWith('https://ticketon.kz/')) {
         m.ticketonUrl = null;
       }
-      if (m.ticketonUrl || m.platform === 'Кинотеатр') {
-        cinemaResults.push(m);
-      } else {
-        streamingResults.push(m);
+      streamingResults.push(m);
+    }
+
+    // ALWAYS prepend ALL DB cinema movies as guaranteed first items (skip if series-only mode)
+    if (type !== 'series') {
+      for (const cm of cinemaMovies) {
+        cinemaResults.push({
+          id: `cinema-${cm.url.split('/').pop()}`,
+          title: cm.title,
+          titleOriginal: cm.title,
+          year: new Date().getFullYear(),
+          duration: '—',
+          ratingImdb: 0,
+          ratingKinopoisk: 0,
+          genres: ['В кино'],
+          description: `Сейчас в кинотеатрах. Возраст: ${cm.age_rating || '—'}. Купить билеты на Ticketon.`,
+          posterUrl: cm.image_url || '',
+          platform: 'Кинотеатр',
+          type: 'movie',
+          actors: [],
+          ticketonUrl: cm.url,
+        });
+      }
+      // De-duplicate streaming entries that overlap with cinema by title
+      for (let i = streamingResults.length - 1; i >= 0; i--) {
+        const t = (streamingResults[i].title || '').toLowerCase().trim();
+        if (cinemaTitlesSet.has(t)) streamingResults.splice(i, 1);
       }
     }
 
