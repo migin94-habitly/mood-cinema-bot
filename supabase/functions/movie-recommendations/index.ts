@@ -119,6 +119,12 @@ function fallbackPoster(title: string): string {
   return `https://placehold.co/600x900/0F0A1F/A855F7/png?text=${safe}&font=montserrat`;
 }
 
+function isUsablePoster(url?: string | null): boolean {
+  if (!url) return false;
+  if (url.includes('placehold.co')) return false;
+  return /^https:\/\//i.test(url);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -307,9 +313,12 @@ posterUrl="" — будет подставлен сервером.${excludeConst
     // Enrich posters in parallel (skip actor photos for speed — UI loads them on demand in details)
     if (TMDB_API_KEY && movies.length > 0) {
       const posters = await Promise.all(
-        movies.map((m: any) =>
-          searchTmdbPoster(m.title, m.titleOriginal, m.year, m.type, TMDB_API_KEY).catch(() => null)
-        )
+        movies.map((m: any) => {
+          // Ticketon posters are the freshest source for cinema listings. Do not overwrite
+          // them with TMDB search results, which can miss local / upcoming titles.
+          if (isUsablePoster(m.posterUrl) && m.ticketonUrl) return Promise.resolve(m.posterUrl);
+          return searchTmdbPoster(m.title, m.titleOriginal, m.year, m.type, TMDB_API_KEY).catch(() => null);
+        })
       );
       // Second pass: for those still missing, try the OPPOSITE type endpoint (AI sometimes mislabels)
       const retryIdx: number[] = [];
@@ -325,7 +334,7 @@ posterUrl="" — будет подставлен сервером.${excludeConst
 
       movies = movies.map((m: any, i: number) => ({
         ...m,
-        posterUrl: posters[i] || fallbackPoster(m.titleOriginal || m.title),
+        posterUrl: posters[i] || (isUsablePoster(m.posterUrl) ? m.posterUrl : fallbackPoster(m.titleOriginal || m.title)),
         actors: (m.actors || []).map((a: any) => ({ ...a, imageUrl: a.imageUrl || fallbackPoster(a.name) })),
       }));
     } else {
