@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Movie } from '@/types/movie';
 import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
 import { AnimatePresence, motion } from 'framer-motion';
+import { haptic } from '@/lib/telegram';
 
 interface Props {
   movie: Movie;
@@ -21,11 +22,25 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
   const handleShare = async () => {
     const shareText = `Посмотри: ${movie.title} (${movie.year}). IMDB: ${movie.ratingImdb}, КП: ${movie.ratingKinopoisk}. Рекомендация от Movie Mood AI!`;
     const shareUrl = window.location.href;
-    if (navigator.share) {
-      try { await navigator.share({ title: movie.title, text: shareText, url: shareUrl }); } catch {}
-    } else {
-      try { await navigator.clipboard.writeText(`${shareText} ${shareUrl}`); } catch {}
+    haptic.light();
+    // Telegram Mini App native share
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openTelegramLink) {
+      const url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+      try { tg.openTelegramLink(url); return; } catch {}
     }
+    if (navigator.share) {
+      try { await navigator.share({ title: movie.title, text: shareText, url: shareUrl }); return; } catch {}
+    }
+    try {
+      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+      alert('Скопировано в буфер обмена');
+    } catch {}
+  };
+
+  const handleBack = () => {
+    haptic.light();
+    onBack();
   };
 
   const handleWatch = (source: typeof WATCH_SOURCES[0]) => {
@@ -36,6 +51,29 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
 
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-y-auto">
+      {/* Fixed top action bar — always tappable, even when scrolling */}
+      <div
+        className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 pb-3"
+        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+      >
+        <button
+          onClick={handleBack}
+          type="button"
+          aria-label="Назад"
+          className="size-11 glass rounded-2xl flex items-center justify-center transition-transform active:scale-90 shadow-lg"
+        >
+          <span className="material-symbols-outlined">chevron_left</span>
+        </button>
+        <button
+          onClick={handleShare}
+          type="button"
+          aria-label="Поделиться"
+          className="size-11 glass rounded-2xl flex items-center justify-center transition-transform active:scale-90 shadow-lg"
+        >
+          <span className="material-symbols-outlined">share</span>
+        </button>
+      </div>
+
       <div className="relative h-[50vh] shrink-0">
         <img
           src={movie.posterUrl}
@@ -47,15 +85,6 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-        
-        <div className="absolute top-8 inset-x-6 flex items-center justify-between z-20">
-          <button onClick={onBack} className="size-10 glass rounded-xl flex items-center justify-center transition-transform active:scale-90">
-            <span className="material-symbols-outlined">chevron_left</span>
-          </button>
-          <button onClick={handleShare} className="size-10 glass rounded-xl flex items-center justify-center transition-transform active:scale-90">
-            <span className="material-symbols-outlined">share</span>
-          </button>
-        </div>
       </div>
 
       <div className="relative -mt-20 px-6 pb-48 z-10 space-y-8">

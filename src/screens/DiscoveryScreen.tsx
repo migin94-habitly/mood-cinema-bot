@@ -6,9 +6,19 @@ import { getPlatformStyle, IMDB_STYLE, KP_STYLE } from '@/lib/platformColors';
 import { MOODS } from '@/constants/moods';
 import { trackCinemaClick } from '@/services/engagementService';
 import { trackEvent } from '@/services/analyticsService';
+import { AnimatedClapperboard } from '@/components/AnimatedClapperboard';
 
 const POSTER_FALLBACK = (title: string) =>
   `https://placehold.co/600x900/0F0A1F/A855F7/png?text=${encodeURIComponent((title || 'Movie').slice(0, 30))}&font=montserrat`;
+
+const LOADING_MESSAGES = [
+  'Анализируем ваше настроение…',
+  'Перебираем тысячи постеров…',
+  'Сверяем рейтинги IMDB и КП…',
+  'Ищем то, что зацепит именно вас…',
+  'Подбираем сеансы в кинотеатрах…',
+  'Финальный штрих: собираем подборку…',
+];
 
 export interface DiscoveryFilters {
   mood: MoodType;
@@ -179,6 +189,8 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
   const [filterGenre, setFilterGenre] = useState<string | null>(null);
   const [localIndex, setLocalIndex] = useState(0);
   const [pendingApply, setPendingApply] = useState(false);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+  const [refreshProgress, setRefreshProgress] = useState(0);
 
   // Reset local index when movies change (new fetch)
   const moviesKey = useRef(movies.map(m => m.id).join(','));
@@ -194,6 +206,27 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
   useEffect(() => {
     setFilterMood(currentMood);
   }, [currentMood]);
+
+  // Preload upcoming posters so first card never appears empty
+  useEffect(() => {
+    movies.slice(0, 4).forEach(m => {
+      if (m.posterUrl) {
+        const img = new Image();
+        img.src = m.posterUrl;
+      }
+    });
+  }, [movies]);
+
+  // Cycle loading hints + fake progress while refreshing
+  useEffect(() => {
+    if (!isRefreshing) {
+      setRefreshProgress(0);
+      return;
+    }
+    const msgT = setInterval(() => setLoadingMsgIdx(i => (i + 1) % LOADING_MESSAGES.length), 1800);
+    const progT = setInterval(() => setRefreshProgress(p => (p < 92 ? p + Math.random() * 6 : p)), 250);
+    return () => { clearInterval(msgT); clearInterval(progT); };
+  }, [isRefreshing]);
 
   const handleApplyFilters = () => {
     if (onFiltersChange) {
@@ -422,14 +455,38 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
 
       <main className={`relative z-10 flex-1 px-4 py-2 flex items-center justify-center ${showFilters ? 'pointer-events-none' : ''}`}>
         {isRefreshing ? (
-          <div className="flex flex-col items-center gap-4">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-            >
-              <span className="material-symbols-outlined text-primary text-4xl">progress_activity</span>
-            </motion.div>
-            <p className="text-sm text-muted-foreground font-medium">AI подбирает фильмы...</p>
+          <div className="flex flex-col items-center gap-5 w-full max-w-[280px]">
+            <AnimatedClapperboard size={88} duration={1.6} />
+            <div className="bg-primary/15 border border-primary/30 px-3 py-1 rounded-full flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-primary">AI подборка</span>
+            </div>
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={loadingMsgIdx}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.35 }}
+                className="text-sm text-foreground font-medium text-center min-h-[20px]"
+              >
+                {LOADING_MESSAGES[loadingMsgIdx]}
+              </motion.p>
+            </AnimatePresence>
+            <div className="w-full">
+              <div className="flex justify-between items-end mb-1.5">
+                <span className="text-[9px] text-primary font-bold uppercase tracking-widest">Processing</span>
+                <span className="text-xs font-bold">{Math.floor(refreshProgress)}%</span>
+              </div>
+              <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-primary rounded-full"
+                  style={{ boxShadow: '0 0 12px hsla(272, 90%, 55%, 0.5)' }}
+                  animate={{ width: `${refreshProgress}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+            </div>
           </div>
         ) : (
           <div className="relative w-full max-w-[400px] aspect-[2/3]">
@@ -457,7 +514,10 @@ export const DiscoveryScreen: React.FC<Props> = ({ movies, currentIndex, onLike,
         )}
       </main>
 
-      <div className="px-6 py-8 flex items-center justify-center gap-10">
+      <div
+        className="px-6 pt-3 flex items-center justify-center gap-10 shrink-0"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
+      >
         <motion.button 
           onClick={handleLocalPass}
           className="group flex flex-col items-center gap-2"
