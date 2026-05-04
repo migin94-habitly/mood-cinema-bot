@@ -113,6 +113,65 @@ async function searchTmdbPerson(name: string, apiKey: string): Promise<string | 
   } catch { return null; }
 }
 
+async function filterCinemaByMood(
+  cinema: CinemaMovie[],
+  mood: string,
+  moodContext: string,
+  apiKey: string,
+): Promise<Set<string>> {
+  if (cinema.length === 0) return new Set();
+  const list = cinema
+    .map((m, i) => `${i + 1}. "${m.title}" — ${(m.description || '').slice(0, 240)}`)
+    .join('\n');
+
+  const prompt = `Из списка фильмов, идущих в кинотеатрах, выбери ТОЛЬКО те, которые подходят под настроение "${mood}" (${moodContext}).
+Опирайся на название и описание. Если описание пустое — суди по названию и общеизвестному жанру.
+Верни массив точных названий (строкой как в списке). Если ни один не подходит — верни пустой массив.
+
+Список:
+${list}`;
+
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "Ты — кинокритик. Подбираешь фильмы под настроение зрителя." },
+          { role: "user", content: prompt },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "pick_cinema",
+            description: "Return titles that match the mood",
+            parameters: {
+              type: "object",
+              properties: { titles: { type: "array", items: { type: "string" } } },
+              required: ["titles"],
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "pick_cinema" } },
+      }),
+    });
+    if (!res.ok) {
+      console.warn("filterCinemaByMood: AI error", res.status);
+      return new Set(cinema.map(c => c.title.toLowerCase().trim()));
+    }
+    const data = await res.json();
+    const tc = data.choices?.[0]?.message?.tool_calls?.[0];
+    const titles: string[] = tc ? (JSON.parse(tc.function.arguments).titles || []) : [];
+    const norm = new Set(titles.map(t => t.toLowerCase().trim()));
+    console.log(`filterCinemaByMood: ${norm.size}/${cinema.length} match mood=${mood}`);
+    return norm;
+  } catch (e) {
+    console.warn("filterCinemaByMood failed", e);
+    return new Set(cinema.map(c => c.title.toLowerCase().trim()));
+  }
+}
+
 function fallbackPoster(title: string): string {
   const safe = encodeURIComponent((title || 'Movie').slice(0, 40));
   // Brand-styled placeholder (dark + purple) that matches the app theme
