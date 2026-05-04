@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Screen, MoodType, Movie, AppState } from '@/types/movie';
 import { WelcomeScreen } from '@/screens/WelcomeScreen';
+import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import { MoodSelectionScreen } from '@/screens/MoodSelectionScreen';
 import { AIProcessingScreen } from '@/screens/AIProcessingScreen';
 import { DiscoveryScreen, DiscoveryFilters } from '@/screens/DiscoveryScreen';
@@ -31,6 +32,14 @@ const BACK_MAP: Partial<Record<Screen, Screen>> = {
 };
 
 const Index: React.FC = () => {
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    try { return !localStorage.getItem('mm_onboarded_v1'); } catch { return true; }
+  });
+  const finishOnboarding = useCallback(() => {
+    try { localStorage.setItem('mm_onboarded_v1', '1'); } catch {}
+    setShowOnboarding(false);
+  }, []);
+
   const [state, setState] = useState<AppState>({
     currentScreen: 'WELCOME',
     selectedMood: null,
@@ -86,11 +95,11 @@ const Index: React.FC = () => {
         setState(prev => ({ ...prev, currentScreen: backTo }));
       }
     };
-    if (state.currentScreen === 'WELCOME') tg.BackButton.hide();
+    if (state.currentScreen === 'WELCOME' || showOnboarding) tg.BackButton.hide();
     else tg.BackButton.show();
     tg.BackButton.onClick(handleBack);
     return () => { tg.BackButton.offClick(handleBack); };
-  }, [state.currentScreen]);
+  }, [state.currentScreen, showOnboarding]);
 
   const navigateTo = (screen: Screen) => {
     haptic.light();
@@ -287,7 +296,11 @@ const Index: React.FC = () => {
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden bg-background">
-      {renderScreen()}
+      {showOnboarding ? (
+        <OnboardingScreen onFinish={finishOnboarding} />
+      ) : (
+        renderScreen()
+      )}
     </div>
   );
 };
