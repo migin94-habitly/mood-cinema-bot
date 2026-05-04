@@ -44,8 +44,12 @@ export const DetailsScreen: React.FC<Props> = ({ movie, onBack, isInWatchlist, o
   };
 
   const handleWatch = (source: typeof WATCH_SOURCES[0]) => {
+    haptic.medium();
     const query = encodeURIComponent(movie.titleOriginal || movie.title);
-    window.open(`${source.url}/search/?q=${query}`, '_blank');
+    const url = `${source.url}/search/?q=${query}`;
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openLink) { try { tg.openLink(url, { try_instant_view: false }); setShowSourcePicker(false); return; } catch {} }
+    window.open(url, '_blank', 'noopener,noreferrer');
     setShowSourcePicker(false);
   };
 
